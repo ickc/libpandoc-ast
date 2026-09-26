@@ -1,6 +1,9 @@
 # The Python package for conda: pure Python, one package for every platform.
 #
-#   rattler-build build -r python/recipe -c conda-forge
+#   rattler-build build -r python/recipe -c https://prefix.dev/pandoc-forge/dev -c conda-forge
+#
+# pandoc-api (from pandoc-forge) pins the AST version: the generated types
+# are for exactly one, schema/pandoc-ast.json's "pandoc-api-version".
 context:
   version: "0.1.0"
 
@@ -23,6 +26,8 @@ requirements:
     - setuptools >=77
   run:
     - python >=${{ python_min }}
+    # major.minor of schema/pandoc-ast.json's pandoc-api-version
+    - pandoc-api 1.23.*
 
 tests:
   - python:
