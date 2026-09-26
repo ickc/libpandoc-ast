@@ -1,0 +1,12 @@
+build/
+cabal.project.local
+dist/
+dist-newstyle/
+*.egg-info/
+node_modules/
+.pixi/
+__pycache__/
+*.pyd
+*.so
+target/
+wheelhouse/

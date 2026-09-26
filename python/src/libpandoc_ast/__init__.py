@@ -1,0 +1,67 @@
+"""pandoc's document AST in Python, generated from pandoc-types.
+
+- the AST: one class per constructor (``Para``, ``Str``, ...), with checked
+  fields; ``Pandoc`` is a document;
+- JSON: ``loads``/``dumps`` (and ``Node.from_json``/``to_json``), pandoc's
+  own encoding;
+- filters: ``Filter``, and ``walk`` underneath;
+- ``stringify``, and metadata to and from Python (``to_python``,
+  ``from_python``).
+"""
+
+from __future__ import annotations
+
+import json
+from typing import IO, Any
+
+from . import _types
+from ._core import ASTDecodeError, ASTError, ASTTypeError, Node, NodeDict, NodeList
+from ._types import *  # noqa: F403  the AST classes
+from ._types import Pandoc
+from ._walk import Context, walk
+from .filter import Filter, run
+from .util import from_python, stringify, to_python
+
+__version__ = "0.1.0"
+
+
+def loads(text: str | bytes) -> Pandoc:
+    """A document from pandoc's JSON text."""
+    return Pandoc.from_json(json.loads(text))
+
+
+def load(fp: IO[Any]) -> Pandoc:
+    """A document from a file of pandoc's JSON."""
+    return Pandoc.from_json(json.load(fp))
+
+
+def dumps(doc: Pandoc) -> str:
+    """A document as pandoc's JSON text."""
+    return json.dumps(doc.to_json(), ensure_ascii=False, separators=(",", ":"))
+
+
+def dump(doc: Pandoc, fp: IO[str]) -> None:
+    """Write a document as pandoc's JSON."""
+    fp.write(dumps(doc))
+
+
+__all__ = [
+    "ASTDecodeError",
+    "ASTError",
+    "ASTTypeError",
+    "Context",
+    "Filter",
+    "Node",
+    "NodeDict",
+    "NodeList",
+    "dump",
+    "dumps",
+    "from_python",
+    "load",
+    "loads",
+    "run",
+    "stringify",
+    "to_python",
+    "walk",
+]
+__all__ += _types.__all__

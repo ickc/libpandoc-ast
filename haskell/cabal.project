@@ -1,0 +1,3 @@
+packages: .
+-- The Hackage snapshot and pandoc-types version are pinned in ../pins.env;
+-- ../scripts/generate.sh writes them to cabal.project.local.

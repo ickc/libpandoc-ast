@@ -1,0 +1,1391 @@
+{
+ "pandoc-api-version": [
+  1,
+  23,
+  1,
+  2
+ ],
+ "root": "Pandoc",
+ "types": [
+  {
+   "name": "Pandoc",
+   "kind": "product",
+   "encoding": "root",
+   "fields": [
+    {
+     "name": "meta",
+     "type": {
+      "ref": "Meta"
+     },
+     "key": "meta",
+     "default": {}
+    },
+    {
+     "name": "blocks",
+     "type": {
+      "list": {
+       "ref": "Block"
+      }
+     },
+     "key": "blocks",
+     "default": []
+    }
+   ],
+   "variadic": "blocks"
+  },
+  {
+   "name": "Meta",
+   "kind": "alias",
+   "type": {
+    "map": [
+     {
+      "prim": "string"
+     },
+     {
+      "ref": "MetaValue"
+     }
+    ]
+   }
+  },
+  {
+   "name": "Block",
+   "kind": "sum",
+   "constructors": [
+    {
+     "name": "Plain",
+     "encoding": "value",
+     "fields": [
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "ref": "Inline"
+        }
+       },
+       "default": []
+      }
+     ],
+     "variadic": "content"
+    },
+    {
+     "name": "Para",
+     "encoding": "value",
+     "fields": [
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "ref": "Inline"
+        }
+       },
+       "default": []
+      }
+     ],
+     "variadic": "content"
+    },
+    {
+     "name": "LineBlock",
+     "encoding": "value",
+     "fields": [
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "list": {
+          "ref": "Inline"
+         }
+        }
+       },
+       "default": []
+      }
+     ],
+     "variadic": "content"
+    },
+    {
+     "name": "CodeBlock",
+     "encoding": "array",
+     "fields": [
+      {
+       "name": "attr",
+       "type": {
+        "ref": "Attr"
+       },
+       "default": [
+        "",
+        [],
+        []
+       ],
+       "flatten": true
+      },
+      {
+       "name": "text",
+       "type": {
+        "prim": "string"
+       }
+      }
+     ]
+    },
+    {
+     "name": "RawBlock",
+     "encoding": "array",
+     "fields": [
+      {
+       "name": "format",
+       "type": {
+        "ref": "Format"
+       }
+      },
+      {
+       "name": "text",
+       "type": {
+        "prim": "string"
+       }
+      }
+     ]
+    },
+    {
+     "name": "BlockQuote",
+     "encoding": "value",
+     "fields": [
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "ref": "Block"
+        }
+       },
+       "default": []
+      }
+     ],
+     "variadic": "content"
+    },
+    {
+     "name": "OrderedList",
+     "encoding": "array",
+     "fields": [
+      {
+       "name": "list_attributes",
+       "type": {
+        "ref": "ListAttributes"
+       },
+       "default": [
+        1,
+        {
+         "t": "DefaultStyle"
+        },
+        {
+         "t": "DefaultDelim"
+        }
+       ],
+       "flatten": true
+      },
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "list": {
+          "ref": "Block"
+         }
+        }
+       },
+       "default": []
+      }
+     ],
+     "variadic": "content"
+    },
+    {
+     "name": "BulletList",
+     "encoding": "value",
+     "fields": [
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "list": {
+          "ref": "Block"
+         }
+        }
+       },
+       "default": []
+      }
+     ],
+     "variadic": "content"
+    },
+    {
+     "name": "DefinitionList",
+     "encoding": "value",
+     "fields": [
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "tuple": [
+          {
+           "list": {
+            "ref": "Inline"
+           }
+          },
+          {
+           "list": {
+            "list": {
+             "ref": "Block"
+            }
+           }
+          }
+         ]
+        }
+       },
+       "default": []
+      }
+     ],
+     "variadic": "content"
+    },
+    {
+     "name": "Header",
+     "encoding": "array",
+     "fields": [
+      {
+       "name": "level",
+       "type": {
+        "prim": "int"
+       }
+      },
+      {
+       "name": "attr",
+       "type": {
+        "ref": "Attr"
+       },
+       "default": [
+        "",
+        [],
+        []
+       ],
+       "flatten": true
+      },
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "ref": "Inline"
+        }
+       },
+       "default": []
+      }
+     ],
+     "variadic": "content"
+    },
+    {
+     "name": "HorizontalRule",
+     "encoding": "none",
+     "fields": []
+    },
+    {
+     "name": "Table",
+     "encoding": "array",
+     "fields": [
+      {
+       "name": "attr",
+       "type": {
+        "ref": "Attr"
+       },
+       "default": [
+        "",
+        [],
+        []
+       ],
+       "flatten": true
+      },
+      {
+       "name": "caption",
+       "type": {
+        "ref": "Caption"
+       },
+       "default": [
+        null,
+        []
+       ]
+      },
+      {
+       "name": "col_specs",
+       "type": {
+        "list": {
+         "ref": "ColSpec"
+        }
+       },
+       "default": []
+      },
+      {
+       "name": "head",
+       "type": {
+        "ref": "TableHead"
+       },
+       "default": [
+        [
+         "",
+         [],
+         []
+        ],
+        []
+       ]
+      },
+      {
+       "name": "bodies",
+       "type": {
+        "list": {
+         "ref": "TableBody"
+        }
+       },
+       "default": []
+      },
+      {
+       "name": "foot",
+       "type": {
+        "ref": "TableFoot"
+       },
+       "default": [
+        [
+         "",
+         [],
+         []
+        ],
+        []
+       ]
+      }
+     ]
+    },
+    {
+     "name": "Figure",
+     "encoding": "array",
+     "fields": [
+      {
+       "name": "attr",
+       "type": {
+        "ref": "Attr"
+       },
+       "default": [
+        "",
+        [],
+        []
+       ],
+       "flatten": true
+      },
+      {
+       "name": "caption",
+       "type": {
+        "ref": "Caption"
+       },
+       "default": [
+        null,
+        []
+       ]
+      },
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "ref": "Block"
+        }
+       },
+       "default": []
+      }
+     ],
+     "variadic": "content"
+    },
+    {
+     "name": "Div",
+     "encoding": "array",
+     "fields": [
+      {
+       "name": "attr",
+       "type": {
+        "ref": "Attr"
+       },
+       "default": [
+        "",
+        [],
+        []
+       ],
+       "flatten": true
+      },
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "ref": "Block"
+        }
+       },
+       "default": []
+      }
+     ],
+     "variadic": "content"
+    }
+   ]
+  },
+  {
+   "name": "MetaValue",
+   "kind": "sum",
+   "constructors": [
+    {
+     "name": "MetaMap",
+     "encoding": "value",
+     "fields": [
+      {
+       "name": "content",
+       "type": {
+        "map": [
+         {
+          "prim": "string"
+         },
+         {
+          "ref": "MetaValue"
+         }
+        ]
+       },
+       "default": {}
+      }
+     ]
+    },
+    {
+     "name": "MetaList",
+     "encoding": "value",
+     "fields": [
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "ref": "MetaValue"
+        }
+       },
+       "default": []
+      }
+     ],
+     "variadic": "content"
+    },
+    {
+     "name": "MetaBool",
+     "encoding": "value",
+     "fields": [
+      {
+       "name": "value",
+       "type": {
+        "prim": "bool"
+       }
+      }
+     ]
+    },
+    {
+     "name": "MetaString",
+     "encoding": "value",
+     "fields": [
+      {
+       "name": "text",
+       "type": {
+        "prim": "string"
+       }
+      }
+     ]
+    },
+    {
+     "name": "MetaInlines",
+     "encoding": "value",
+     "fields": [
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "ref": "Inline"
+        }
+       },
+       "default": []
+      }
+     ],
+     "variadic": "content"
+    },
+    {
+     "name": "MetaBlocks",
+     "encoding": "value",
+     "fields": [
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "ref": "Block"
+        }
+       },
+       "default": []
+      }
+     ],
+     "variadic": "content"
+    }
+   ]
+  },
+  {
+   "name": "Inline",
+   "kind": "sum",
+   "constructors": [
+    {
+     "name": "Str",
+     "encoding": "value",
+     "fields": [
+      {
+       "name": "text",
+       "type": {
+        "prim": "string"
+       }
+      }
+     ]
+    },
+    {
+     "name": "Emph",
+     "encoding": "value",
+     "fields": [
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "ref": "Inline"
+        }
+       },
+       "default": []
+      }
+     ],
+     "variadic": "content"
+    },
+    {
+     "name": "Underline",
+     "encoding": "value",
+     "fields": [
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "ref": "Inline"
+        }
+       },
+       "default": []
+      }
+     ],
+     "variadic": "content"
+    },
+    {
+     "name": "Strong",
+     "encoding": "value",
+     "fields": [
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "ref": "Inline"
+        }
+       },
+       "default": []
+      }
+     ],
+     "variadic": "content"
+    },
+    {
+     "name": "Strikeout",
+     "encoding": "value",
+     "fields": [
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "ref": "Inline"
+        }
+       },
+       "default": []
+      }
+     ],
+     "variadic": "content"
+    },
+    {
+     "name": "Superscript",
+     "encoding": "value",
+     "fields": [
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "ref": "Inline"
+        }
+       },
+       "default": []
+      }
+     ],
+     "variadic": "content"
+    },
+    {
+     "name": "Subscript",
+     "encoding": "value",
+     "fields": [
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "ref": "Inline"
+        }
+       },
+       "default": []
+      }
+     ],
+     "variadic": "content"
+    },
+    {
+     "name": "SmallCaps",
+     "encoding": "value",
+     "fields": [
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "ref": "Inline"
+        }
+       },
+       "default": []
+      }
+     ],
+     "variadic": "content"
+    },
+    {
+     "name": "Quoted",
+     "encoding": "array",
+     "fields": [
+      {
+       "name": "quote_type",
+       "type": {
+        "ref": "QuoteType"
+       }
+      },
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "ref": "Inline"
+        }
+       },
+       "default": []
+      }
+     ],
+     "variadic": "content"
+    },
+    {
+     "name": "Cite",
+     "encoding": "array",
+     "fields": [
+      {
+       "name": "citations",
+       "type": {
+        "list": {
+         "ref": "Citation"
+        }
+       },
+       "default": []
+      },
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "ref": "Inline"
+        }
+       },
+       "default": []
+      }
+     ]
+    },
+    {
+     "name": "Code",
+     "encoding": "array",
+     "fields": [
+      {
+       "name": "attr",
+       "type": {
+        "ref": "Attr"
+       },
+       "default": [
+        "",
+        [],
+        []
+       ],
+       "flatten": true
+      },
+      {
+       "name": "text",
+       "type": {
+        "prim": "string"
+       }
+      }
+     ]
+    },
+    {
+     "name": "Space",
+     "encoding": "none",
+     "fields": []
+    },
+    {
+     "name": "SoftBreak",
+     "encoding": "none",
+     "fields": []
+    },
+    {
+     "name": "LineBreak",
+     "encoding": "none",
+     "fields": []
+    },
+    {
+     "name": "Math",
+     "encoding": "array",
+     "fields": [
+      {
+       "name": "math_type",
+       "type": {
+        "ref": "MathType"
+       }
+      },
+      {
+       "name": "text",
+       "type": {
+        "prim": "string"
+       }
+      }
+     ]
+    },
+    {
+     "name": "RawInline",
+     "encoding": "array",
+     "fields": [
+      {
+       "name": "format",
+       "type": {
+        "ref": "Format"
+       }
+      },
+      {
+       "name": "text",
+       "type": {
+        "prim": "string"
+       }
+      }
+     ]
+    },
+    {
+     "name": "Link",
+     "encoding": "array",
+     "fields": [
+      {
+       "name": "attr",
+       "type": {
+        "ref": "Attr"
+       },
+       "default": [
+        "",
+        [],
+        []
+       ],
+       "flatten": true
+      },
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "ref": "Inline"
+        }
+       },
+       "default": []
+      },
+      {
+       "name": "target",
+       "type": {
+        "ref": "Target"
+       },
+       "flatten": true
+      }
+     ],
+     "variadic": "content"
+    },
+    {
+     "name": "Image",
+     "encoding": "array",
+     "fields": [
+      {
+       "name": "attr",
+       "type": {
+        "ref": "Attr"
+       },
+       "default": [
+        "",
+        [],
+        []
+       ],
+       "flatten": true
+      },
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "ref": "Inline"
+        }
+       },
+       "default": []
+      },
+      {
+       "name": "target",
+       "type": {
+        "ref": "Target"
+       },
+       "flatten": true
+      }
+     ],
+     "variadic": "content"
+    },
+    {
+     "name": "Note",
+     "encoding": "value",
+     "fields": [
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "ref": "Block"
+        }
+       },
+       "default": []
+      }
+     ],
+     "variadic": "content"
+    },
+    {
+     "name": "Span",
+     "encoding": "array",
+     "fields": [
+      {
+       "name": "attr",
+       "type": {
+        "ref": "Attr"
+       },
+       "default": [
+        "",
+        [],
+        []
+       ],
+       "flatten": true
+      },
+      {
+       "name": "content",
+       "type": {
+        "list": {
+         "ref": "Inline"
+        }
+       },
+       "default": []
+      }
+     ],
+     "variadic": "content"
+    }
+   ]
+  },
+  {
+   "name": "Attr",
+   "kind": "product",
+   "encoding": "array",
+   "fields": [
+    {
+     "name": "identifier",
+     "type": {
+      "prim": "string"
+     },
+     "default": ""
+    },
+    {
+     "name": "classes",
+     "type": {
+      "list": {
+       "prim": "string"
+      }
+     },
+     "default": []
+    },
+    {
+     "name": "attributes",
+     "type": {
+      "list": {
+       "tuple": [
+        {
+         "prim": "string"
+        },
+        {
+         "prim": "string"
+        }
+       ]
+      }
+     },
+     "default": []
+    }
+   ]
+  },
+  {
+   "name": "Format",
+   "kind": "alias",
+   "type": {
+    "prim": "string"
+   }
+  },
+  {
+   "name": "ListAttributes",
+   "kind": "product",
+   "encoding": "array",
+   "fields": [
+    {
+     "name": "start",
+     "type": {
+      "prim": "int"
+     },
+     "default": 1
+    },
+    {
+     "name": "style",
+     "type": {
+      "ref": "ListNumberStyle"
+     },
+     "default": {
+      "t": "DefaultStyle"
+     }
+    },
+    {
+     "name": "delimiter",
+     "type": {
+      "ref": "ListNumberDelim"
+     },
+     "default": {
+      "t": "DefaultDelim"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Caption",
+   "kind": "product",
+   "encoding": "array",
+   "fields": [
+    {
+     "name": "short",
+     "type": {
+      "maybe": {
+       "ref": "ShortCaption"
+      }
+     },
+     "default": null
+    },
+    {
+     "name": "content",
+     "type": {
+      "list": {
+       "ref": "Block"
+      }
+     },
+     "default": []
+    }
+   ],
+   "variadic": "content"
+  },
+  {
+   "name": "ColSpec",
+   "kind": "product",
+   "encoding": "array",
+   "fields": [
+    {
+     "name": "alignment",
+     "type": {
+      "ref": "Alignment"
+     },
+     "default": {
+      "t": "AlignDefault"
+     }
+    },
+    {
+     "name": "width",
+     "type": {
+      "ref": "ColWidth"
+     },
+     "default": {
+      "t": "ColWidthDefault"
+     }
+    }
+   ]
+  },
+  {
+   "name": "TableHead",
+   "kind": "product",
+   "encoding": "array",
+   "fields": [
+    {
+     "name": "attr",
+     "type": {
+      "ref": "Attr"
+     },
+     "default": [
+      "",
+      [],
+      []
+     ],
+     "flatten": true
+    },
+    {
+     "name": "rows",
+     "type": {
+      "list": {
+       "ref": "Row"
+      }
+     },
+     "default": []
+    }
+   ],
+   "variadic": "rows"
+  },
+  {
+   "name": "TableBody",
+   "kind": "product",
+   "encoding": "array",
+   "fields": [
+    {
+     "name": "attr",
+     "type": {
+      "ref": "Attr"
+     },
+     "default": [
+      "",
+      [],
+      []
+     ],
+     "flatten": true
+    },
+    {
+     "name": "row_head_columns",
+     "type": {
+      "ref": "RowHeadColumns"
+     },
+     "default": 0
+    },
+    {
+     "name": "head",
+     "type": {
+      "list": {
+       "ref": "Row"
+      }
+     },
+     "default": []
+    },
+    {
+     "name": "body",
+     "type": {
+      "list": {
+       "ref": "Row"
+      }
+     },
+     "default": []
+    }
+   ]
+  },
+  {
+   "name": "TableFoot",
+   "kind": "product",
+   "encoding": "array",
+   "fields": [
+    {
+     "name": "attr",
+     "type": {
+      "ref": "Attr"
+     },
+     "default": [
+      "",
+      [],
+      []
+     ],
+     "flatten": true
+    },
+    {
+     "name": "rows",
+     "type": {
+      "list": {
+       "ref": "Row"
+      }
+     },
+     "default": []
+    }
+   ],
+   "variadic": "rows"
+  },
+  {
+   "name": "QuoteType",
+   "kind": "enum",
+   "values": [
+    "SingleQuote",
+    "DoubleQuote"
+   ]
+  },
+  {
+   "name": "Citation",
+   "kind": "product",
+   "encoding": "object",
+   "fields": [
+    {
+     "name": "id",
+     "type": {
+      "prim": "string"
+     },
+     "key": "citationId"
+    },
+    {
+     "name": "prefix",
+     "type": {
+      "list": {
+       "ref": "Inline"
+      }
+     },
+     "key": "citationPrefix",
+     "default": []
+    },
+    {
+     "name": "suffix",
+     "type": {
+      "list": {
+       "ref": "Inline"
+      }
+     },
+     "key": "citationSuffix",
+     "default": []
+    },
+    {
+     "name": "mode",
+     "type": {
+      "ref": "CitationMode"
+     },
+     "key": "citationMode",
+     "default": {
+      "t": "NormalCitation"
+     }
+    },
+    {
+     "name": "note_num",
+     "type": {
+      "prim": "int"
+     },
+     "key": "citationNoteNum",
+     "default": 0
+    },
+    {
+     "name": "hash",
+     "type": {
+      "prim": "int"
+     },
+     "key": "citationHash",
+     "default": 0
+    }
+   ]
+  },
+  {
+   "name": "MathType",
+   "kind": "enum",
+   "values": [
+    "DisplayMath",
+    "InlineMath"
+   ]
+  },
+  {
+   "name": "Target",
+   "kind": "product",
+   "encoding": "array",
+   "fields": [
+    {
+     "name": "url",
+     "type": {
+      "prim": "string"
+     }
+    },
+    {
+     "name": "title",
+     "type": {
+      "prim": "string"
+     },
+     "default": ""
+    }
+   ]
+  },
+  {
+   "name": "ListNumberStyle",
+   "kind": "enum",
+   "values": [
+    "DefaultStyle",
+    "Example",
+    "Decimal",
+    "LowerRoman",
+    "UpperRoman",
+    "LowerAlpha",
+    "UpperAlpha"
+   ]
+  },
+  {
+   "name": "ListNumberDelim",
+   "kind": "enum",
+   "values": [
+    "DefaultDelim",
+    "Period",
+    "OneParen",
+    "TwoParens"
+   ]
+  },
+  {
+   "name": "ShortCaption",
+   "kind": "alias",
+   "type": {
+    "list": {
+     "ref": "Inline"
+    }
+   }
+  },
+  {
+   "name": "Alignment",
+   "kind": "enum",
+   "values": [
+    "AlignLeft",
+    "AlignRight",
+    "AlignCenter",
+    "AlignDefault"
+   ]
+  },
+  {
+   "name": "ColWidth",
+   "kind": "sum",
+   "constructors": [
+    {
+     "name": "ColWidth",
+     "encoding": "value",
+     "fields": [
+      {
+       "name": "width",
+       "type": {
+        "prim": "double"
+       }
+      }
+     ]
+    },
+    {
+     "name": "ColWidthDefault",
+     "encoding": "none",
+     "fields": []
+    }
+   ]
+  },
+  {
+   "name": "Row",
+   "kind": "product",
+   "encoding": "array",
+   "fields": [
+    {
+     "name": "attr",
+     "type": {
+      "ref": "Attr"
+     },
+     "default": [
+      "",
+      [],
+      []
+     ],
+     "flatten": true
+    },
+    {
+     "name": "cells",
+     "type": {
+      "list": {
+       "ref": "Cell"
+      }
+     },
+     "default": []
+    }
+   ],
+   "variadic": "cells"
+  },
+  {
+   "name": "RowHeadColumns",
+   "kind": "alias",
+   "type": {
+    "prim": "int"
+   }
+  },
+  {
+   "name": "CitationMode",
+   "kind": "enum",
+   "values": [
+    "AuthorInText",
+    "SuppressAuthor",
+    "NormalCitation"
+   ]
+  },
+  {
+   "name": "Cell",
+   "kind": "product",
+   "encoding": "array",
+   "fields": [
+    {
+     "name": "attr",
+     "type": {
+      "ref": "Attr"
+     },
+     "default": [
+      "",
+      [],
+      []
+     ],
+     "flatten": true
+    },
+    {
+     "name": "alignment",
+     "type": {
+      "ref": "Alignment"
+     },
+     "default": {
+      "t": "AlignDefault"
+     }
+    },
+    {
+     "name": "row_span",
+     "type": {
+      "ref": "RowSpan"
+     },
+     "default": 1
+    },
+    {
+     "name": "col_span",
+     "type": {
+      "ref": "ColSpan"
+     },
+     "default": 1
+    },
+    {
+     "name": "content",
+     "type": {
+      "list": {
+       "ref": "Block"
+      }
+     },
+     "default": []
+    }
+   ],
+   "variadic": "content"
+  },
+  {
+   "name": "RowSpan",
+   "kind": "alias",
+   "type": {
+    "prim": "int"
+   }
+  },
+  {
+   "name": "ColSpan",
+   "kind": "alias",
+   "type": {
+    "prim": "int"
+   }
+  }
+ ]
+}

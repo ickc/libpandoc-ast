@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # schema/ and corpus/ are generated from pandoc-types and committed: check
+  # they are what the pinned pandoc-types gives.
+  schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Read pins
+        run: cat pins.env >> "$GITHUB_ENV"
+      - uses: haskell-actions/setup@v2.12.1
+        with:
+          ghc-version: ${{ env.GHC_VERSION }}
+          cabal-version: ${{ env.CABAL_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cabal/store
+          key: schema-${{ env.GHC_VERSION }}-${{ env.INDEX_STATE }}-${{ hashFiles('haskell/*.cabal') }}
+      - uses: prefix-dev/setup-pixi@v0.10.2
+        with:
+          cache: true
+      - name: Regenerate
+        run: pixi run bash scripts/generate.sh
+      - name: Generated files are current
+        run: git diff --exit-code
+
+  python:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-15-intel, macos-15, windows-latest]
+        env: [py310, py314]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: prefix-dev/setup-pixi@v0.10.2
+        with:
+          environments: ${{ matrix.env }}
+          cache: true
+      - name: Lint
+        if: matrix.env == 'py314' && matrix.os == 'ubuntu-latest'
+        run: pixi run -e py314 lint
+      - name: Test the source
+        run: pixi run -e ${{ matrix.env }} test-python
+      - name: Test the installed wheel
+        shell: bash
+        run: |
+          pixi run -e ${{ matrix.env }} python -m pip wheel --no-deps -w wheelhouse ./python
+          pixi run -e ${{ matrix.env }} python -m venv --system-site-packages venv
+          if [ -d venv/Scripts ]; then py=venv/Scripts/python; else py=venv/bin/python; fi
+          $py -m pip install --no-deps wheelhouse/*.whl
+          cp -r python/tests corpus "$RUNNER_TEMP/"
+          mkdir -p "$RUNNER_TEMP/python" && mv "$RUNNER_TEMP/tests" "$RUNNER_TEMP/python/"
+          cd "$RUNNER_TEMP" && "$GITHUB_WORKSPACE/$py" -m pytest -q python/tests
+      - uses: actions/upload-artifact@v4
+        if: matrix.env == 'py314' && matrix.os == 'ubuntu-latest'
+        with:
+          name: python-wheel
+          path: wheelhouse/*.whl

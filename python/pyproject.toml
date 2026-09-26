@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "libpandoc-ast"
+version = "0.1.0"
+description = "pandoc's document AST, generated from pandoc-types: checked types, JSON, filters"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+authors = [{ name = "Kolen Cheung", email = "christian.kolen@gmail.com" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Text Processing :: Markup",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Repository = "https://github.com/ickc/libpandoc-ast"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+libpandoc_ast = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+

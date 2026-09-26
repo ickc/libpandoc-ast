@@ -1,0 +1,59 @@
+# libpandoc-ast
+
+pandoc's document AST for other languages, generated from
+[pandoc-types](https://github.com/jgm/pandoc-types) rather than written by
+hand: types, pandoc's JSON encoding, checks with useful errors, and filters.
+
+It needs neither pandoc nor [libpandoc](https://github.com/ickc/libpandoc):
+a filter written with it runs under `pandoc --filter`, and in-process with
+libpandoc's bindings, unchanged.
+
+| language | status | package |
+|---|---|---|
+| Python | working | [`python/`](python/), `pip install libpandoc-ast` (not yet published) |
+| Rust | planned | |
+| TypeScript | planned | |
+| Julia | planned | |
+
+## How it stays in sync with pandoc
+
+```
+pandoc-types ──(haskell/, Template Haskell)──> schema/reified.json
+             ──(QuickCheck, pandoc-types' own)─> corpus/arbitrary.jsonl
+schema/reified.json ──(tools/derive.py)──> schema/pandoc-ast.json, corpus/invalid.jsonl
+schema/pandoc-ast.json ──(tools/gen_<language>.py)──> each language's declarations
+```
+
+- **`schema/reified.json`**: pandoc-types' declarations, read at compile time
+  from pandoc-types itself. An unknown kind of type stops the build.
+- **`schema/pandoc-ast.json`**: what every binding generates from. It adds
+  what the declarations don't say, decided once for all languages: field
+  names (pandoc's Lua API's where it has them), how each type is encoded in
+  JSON, defaults, which field constructors take as varargs. `tools/derive.py`
+  documents the rules, and fails rather than guesses when pandoc-types changes
+  beyond them.
+- **The corpus** is the contract. `arbitrary.jsonl` holds random documents
+  that pandoc-types' own aeson instances encoded, covering every
+  constructor; every binding must decode and re-encode each one unchanged.
+  `invalid.jsonl` holds documents each binding must reject, each with the
+  path of the offending value, which the binding must report. `pandoc.jsonl`
+  is pandoc's own output for `corpus/*.md`.
+- **Each language** generates declarations only (classes, fields, encodings)
+  and has a small hand-written, generic runtime that reads them. Nothing in a
+  runtime names a pandoc type, except helpers like `stringify`.
+
+When pandoc-types changes: bump `pins.env`, run `scripts/generate.sh`, and
+read the diff.
+
+## Layout
+
+- `haskell/`: the tool that writes `reified.json` and `arbitrary.jsonl`
+  (depends on pandoc-types only; builds in about a minute)
+- `schema/`, `corpus/`: generated, committed; CI checks they are current
+- `tools/`: `derive.py`, and a generator per language
+- `python/`: the Python package
+
+## License
+
+BSD-3-Clause, like pandoc-types, which the schema is derived from. The
+generated code depends on neither pandoc nor libpandoc (which are GPL).
