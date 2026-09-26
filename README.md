@@ -10,10 +10,21 @@ libpandoc's bindings, unchanged.
 
 | language | status | package |
 |---|---|---|
-| Python | working | [`python/`](python/), `pip install libpandoc-ast` (not yet published) |
-| Rust | planned | |
-| TypeScript | planned | |
-| Julia | planned | |
+| Python | working | [`python/`](python/): `libpandoc-ast` on PyPI (not yet published) |
+| Rust | prototype | [`rust/`](rust/): crate `libpandoc-ast` |
+| TypeScript | prototype | [`ts/`](ts/): npm `libpandoc-ast`, browser and Node.js |
+| Julia | prototype | [`julia/`](julia/): `LibPandocAST.jl` |
+
+Each follows its language's idioms, from the same schema:
+
+| | nodes | wrong value | filter |
+|---|---|---|---|
+| Python | a class per constructor, checked fields and lists | `ASTTypeError` where it happens | `@f.on(Header)` functions |
+| Rust | enums, structs with named fields | doesn't compile | `VisitMut` trait |
+| TypeScript | plain objects, discriminated by `t` | `ASTTypeError` from constructors and `serialize` | `{ Header(h) {...} }`, as Lua filters |
+| Julia | a struct per constructor, abstract type per sum | Julia's own `MethodError` | a method per node type |
+
+Every one of them runs as `pandoc --filter`.
 
 ## How it stays in sync with pandoc
 
@@ -51,7 +62,7 @@ read the diff.
   (depends on pandoc-types only; builds in about a minute)
 - `schema/`, `corpus/`: generated, committed; CI checks they are current
 - `tools/`: `derive.py`, and a generator per language
-- `python/`: the Python package
+- `python/`, `rust/`, `ts/`, `julia/`: the packages
 
 ## License
 

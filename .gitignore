@@ -11,3 +11,4 @@ __pycache__/
 target/
 wheelhouse/
 ts/dist/
+julia/Manifest.toml
