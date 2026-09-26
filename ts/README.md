@@ -15,7 +15,8 @@ applyFilter(doc, {
 serialize(doc);
 ```
 
-As a pandoc filter (`pandoc --filter ./upper.mjs`):
+As a pandoc filter (`pandoc --filter upper.js`; pandoc runs `.js` filters
+with `node`, so the filter's `package.json` should say `"type": "module"`):
 
 ```js
 #!/usr/bin/env node

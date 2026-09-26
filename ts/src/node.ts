@@ -6,7 +6,7 @@
  *     import { runFilter } from "libpandoc-ast/node";
  *     runFilter({ Str: (s) => Str(s.text.toUpperCase()) });
  *
- *     pandoc --filter ./upper.mjs input.md
+ *     pandoc --filter ./upper.js input.md
  */
 
 import { applyFilter } from "./walk.ts";

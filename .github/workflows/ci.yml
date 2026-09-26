@@ -122,7 +122,7 @@ jobs:
       - run: npm run build
       - name: The example runs as a pandoc filter
         run: |
-          out=$(echo 'some *text*' | pixi run --manifest-path ../pixi.toml pandoc --filter examples/upper.mjs -t plain)
+          out=$(echo 'some *text*' | pixi run --manifest-path ../pixi.toml pandoc --filter examples/upper.js -t plain)
           echo "$out"
           [ "$out" = "SOME TEXT" ]
 
