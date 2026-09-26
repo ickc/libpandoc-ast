@@ -1,5 +1,5 @@
 line-length = 100
-extend-exclude = ["python/src/libpandoc_ast/_types.py"]
+extend-exclude = ["python/src/pandom/_types.py"]
 
 [lint]
 select = ["E", "F", "W", "I", "UP", "B"]

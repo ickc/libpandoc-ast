@@ -11,7 +11,7 @@ import pytest
 SRC = Path(__file__).resolve().parents[1] / "src"
 
 SAMPLE = textwrap.dedent("""
-    from libpandoc_ast import Header, Para, Str
+    from pandom import Header, Para, Str
 
     h = Header(1, Str("x"))
     h.level = "2"

@@ -5,7 +5,7 @@ context:
   version: "0.1.0"
 
 package:
-  name: libpandoc-ast
+  name: pandom
   version: ${{ version }}
 
 source:
@@ -27,7 +27,7 @@ requirements:
 tests:
   - python:
       imports:
-        - libpandoc_ast
+        - pandom
       python_version: ${{ python_min }}.*
   - files:
       source:
@@ -42,8 +42,8 @@ tests:
       - pytest -v python/tests
 
 about:
-  homepage: https://github.com/ickc/libpandoc-ast
-  repository: https://github.com/ickc/libpandoc-ast
+  homepage: https://github.com/ickc/pandom
+  repository: https://github.com/ickc/pandom
   license: BSD-3-Clause
   license_file: LICENSE
   summary: pandoc's document AST, generated from pandoc-types, with checks and filters

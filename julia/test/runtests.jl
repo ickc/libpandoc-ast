@@ -1,5 +1,5 @@
-using LibPandocAST
-using LibPandocAST: fromjson, tojson, parse, serialize
+using Pandom
+using Pandom: fromjson, tojson, parse, serialize
 using JSON
 using Test
 

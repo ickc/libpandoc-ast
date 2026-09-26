@@ -2,8 +2,8 @@
  * Running a filter under pandoc, with Node.js:
  *
  *     #!/usr/bin/env node
- *     import { Str } from "libpandoc-ast";
- *     import { runFilter } from "libpandoc-ast/node";
+ *     import { Str } from "pandom-js";
+ *     import { runFilter } from "pandom-js/node";
  *     runFilter({ Str: (s) => Str(s.text.toUpperCase()) });
  *
  *     pandoc --filter ./upper.js input.md

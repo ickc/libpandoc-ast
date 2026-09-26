@@ -3,9 +3,9 @@
 import copy
 import pickle
 
-import libpandoc_ast as A
+import pandom as A
 import pytest
-from libpandoc_ast import (
+from pandom import (
     ASTTypeError,
     Attr,
     Cell,

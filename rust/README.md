@@ -1,10 +1,10 @@
-# libpandoc-ast (Rust)
+# pandom (Rust)
 
 pandoc's document AST, generated from pandoc-types: types that serde
 encodes as pandoc's JSON, and a `VisitMut` trait to change documents.
 
 ```rust
-use libpandoc_ast::{walk_inline, Inline, VisitMut};
+use pandom::{walk_inline, Inline, VisitMut};
 
 struct Upper;
 
@@ -19,7 +19,7 @@ impl VisitMut for Upper {
 
 fn main() {
     // pandoc --filter ./upper
-    libpandoc_ast::filter(|doc, _format| doc.visit(&mut Upper));
+    pandom::filter(|doc, _format| doc.visit(&mut Upper));
 }
 ```
 

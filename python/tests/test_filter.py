@@ -6,9 +6,9 @@ import subprocess
 import sys
 import textwrap
 
-import libpandoc_ast as A
+import pandom as A
 import pytest
-from libpandoc_ast import (
+from pandom import (
     ASTTypeError,
     BulletList,
     Emph,
@@ -199,7 +199,7 @@ def test_run_several():
 
 
 FILTER = textwrap.dedent("""
-    from libpandoc_ast import Filter, Header, Str
+    from pandom import Filter, Header, Str
 
     f = Filter()
 

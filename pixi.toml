@@ -1,5 +1,5 @@
 [workspace]
-name = "libpandoc-ast"
+name = "pandom"
 channels = ["conda-forge"]
 platforms = ["linux-64", "linux-aarch64", "osx-64", "osx-arm64", "win-64"]
 
@@ -29,7 +29,7 @@ ts = ["ts"]
 [tasks]
 # everything derived from schema/reified.json and the corpus (no Haskell)
 derive = "python tools/derive.py"
-gen-python = { cmd = "python tools/gen_python.py && ruff format -q python/src/libpandoc_ast/_types.py", depends-on = ["derive"] }
+gen-python = { cmd = "python tools/gen_python.py && ruff format -q python/src/pandom/_types.py", depends-on = ["derive"] }
 gen-rust = { cmd = "python tools/gen_rust.py && rustfmt --edition 2021 rust/src/generated.rs", depends-on = ["derive"] }
 gen-ts = { cmd = "python tools/gen_ts.py", depends-on = ["derive"] }
 gen-julia = { cmd = "python tools/gen_julia.py", depends-on = ["derive"] }

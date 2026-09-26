@@ -1,4 +1,4 @@
-# LibPandocAST.jl
+# Pandom.jl
 
 pandoc's document AST for Julia, generated from pandoc-types: types,
 pandoc's JSON, and filters as methods.
@@ -6,7 +6,7 @@ pandoc's JSON, and filters as methods.
 ```julia
 #!/usr/bin/env julia
 # pandoc --filter ./upper.jl
-using LibPandocAST
+using Pandom
 
 upper(s::Str) = Str(uppercase(s.text))
 demote(h::Header) = (h.level += 1; nothing)
@@ -27,7 +27,7 @@ run_filter(upper)
   `x`, so the most specific method wins, by dispatch. Return `nothing` to
   keep a node, a node to replace it, or a vector to splice in its place.
   `ctx` is a `Context`: `parent`, `field`, `index`, `path`, `doc`, `format`.
-- `LibPandocAST.parse`/`serialize` for pandoc's JSON; parsing reports where
+- `Pandom.parse`/`serialize` for pandoc's JSON; parsing reports where
   JSON is wrong (`ASTDecodeError`). `stringify` for text.
 
 Status: a prototype.

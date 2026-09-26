@@ -6,9 +6,9 @@
 //! pandoc JSON filter (`pandoc --filter`).
 //!
 //! ```
-//! use libpandoc_ast::{Block, Inline, Pandoc};
+//! use pandom::{Block, Inline, Pandoc};
 //!
-//! let doc: Pandoc = libpandoc_ast::from_str(
+//! let doc: Pandoc = pandom::from_str(
 //!     r#"{"pandoc-api-version":[1,23,1],"meta":{},"blocks":[{"t":"Para","c":[{"t":"Str","c":"hi"}]}]}"#,
 //! ).unwrap();
 //! assert_eq!(doc.blocks, vec![Block::Para(vec![Inline::Str("hi".into())])]);
@@ -118,8 +118,8 @@ impl Pandoc {
 /// argument), if any. Errors go to stderr and exit with status 1.
 ///
 /// ```no_run
-/// libpandoc_ast::filter(|doc, _format| {
-///     doc.blocks.retain(|b| !matches!(b, libpandoc_ast::Block::HorizontalRule));
+/// pandom::filter(|doc, _format| {
+///     doc.blocks.retain(|b| !matches!(b, pandom::Block::HorizontalRule));
 /// });
 /// ```
 pub fn filter<F: FnOnce(&mut Pandoc, Option<&str>)>(f: F) {
@@ -137,7 +137,7 @@ pub fn filter<F: FnOnce(&mut Pandoc, Option<&str>)>(f: F) {
                 .expect("writing stdout");
         }
         Err(e) => {
-            eprintln!("libpandoc-ast filter: {e}");
+            eprintln!("pandom filter: {e}");
             std::process::exit(1);
         }
     }

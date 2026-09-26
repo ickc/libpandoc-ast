@@ -3,14 +3,14 @@ pandoc's document AST, generated from pandoc-types: types, pandoc's JSON,
 walking and filters.
 
 ```julia
-using LibPandocAST
-doc = LibPandocAST.parse(json)                 # checked
+using Pandom
+doc = Pandom.parse(json)                 # checked
 upper(s::Str, ctx) = Str(uppercase(s.text))    # a method per node type
 walk!(upper, doc)
-LibPandocAST.serialize(doc)
+Pandom.serialize(doc)
 ```
 """
-module LibPandocAST
+module Pandom
 
 import JSON
 

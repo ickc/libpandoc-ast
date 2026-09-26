@@ -1,11 +1,11 @@
 {
-  "name": "libpandoc-ast",
+  "name": "pandom-js",
   "version": "0.1.0",
   "description": "pandoc's document AST, generated from pandoc-types: types, pandoc's JSON, checks, filters",
   "license": "BSD-3-Clause",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ickc/libpandoc-ast.git",
+    "url": "git+https://github.com/ickc/pandom.git",
     "directory": "ts"
   },
   "keywords": [

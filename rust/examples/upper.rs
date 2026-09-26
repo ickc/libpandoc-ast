@@ -3,7 +3,7 @@
 //!     cargo build --example upper
 //!     pandoc --filter target/debug/examples/upper input.md
 
-use libpandoc_ast::{walk_inline, Inline, VisitMut};
+use pandom::{walk_inline, Inline, VisitMut};
 
 struct Upper;
 
@@ -17,5 +17,5 @@ impl VisitMut for Upper {
 }
 
 fn main() {
-    libpandoc_ast::filter(|doc, _format| doc.visit(&mut Upper));
+    pandom::filter(|doc, _format| doc.visit(&mut Upper));
 }

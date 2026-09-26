@@ -1,6 +1,6 @@
 """Filters: functions on node types, run as a pandoc filter or in Python.
 
-    from libpandoc_ast import Filter, Header
+    from pandom import Filter, Header
 
     f = Filter()
 
@@ -86,13 +86,13 @@ class Filter:
         try:
             return fn(node, ctx) if wants_ctx else fn(node)
         except Exception as e:
-            if not getattr(e, "_libpandoc_ast_noted", False):
+            if not getattr(e, "_pandom_noted", False):
                 add_note(
                     e,
                     f"in filter function {fn.__qualname__}, on the "
                     f"{type(node).__name__} at {ctx.where}",
                 )
-                e._libpandoc_ast_noted = True  # type: ignore[attr-defined]
+                e._pandom_noted = True  # type: ignore[attr-defined]
             raise
 
     def __call__(self, doc: Pandoc, format: str | None = None) -> Pandoc:

@@ -1450,7 +1450,7 @@ pub type ColSpan = i64;
 /// after: top-down).
 ///
 /// ```
-/// use libpandoc_ast::{Inline, VisitMut, walk_inline};
+/// use pandom::{Inline, VisitMut, walk_inline};
 ///
 /// struct Upper;
 /// impl VisitMut for Upper {

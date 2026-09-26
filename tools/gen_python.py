@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate python/src/libpandoc_ast/_types.py from schema/pandoc-ast.json.
+"""Generate python/src/pandom/_types.py from schema/pandoc-ast.json.
 
 The output only declares: one class per constructor (a subclass of its sum
 type's class) or product, fields as annotations, the JSON encoding as class
@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "python/src/libpandoc_ast/_types.py"
+OUT = ROOT / "python/src/pandom/_types.py"
 
 PRIM = {"string": "str", "int": "int", "double": "float", "bool": "bool"}
 

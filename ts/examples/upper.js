@@ -3,8 +3,8 @@
 //
 //     pandoc --filter ./upper.js input.md
 
-import { Str } from "libpandoc-ast";
-import { runFilter } from "libpandoc-ast/node";
+import { Str } from "pandom-js";
+import { runFilter } from "pandom-js/node";
 
 await runFilter({
   Str: (s) => Str(s.text.toUpperCase()),

@@ -1,6 +1,6 @@
 """The shared corpus: what every binding must accept and reject."""
 
-import libpandoc_ast as A
+import pandom as A
 import pytest
 from conftest import jsonl
 

@@ -1,6 +1,7 @@
-# libpandoc-ast
+# pandom
 
-pandoc's document AST for other languages, generated from
+pandoc's document object model (pan + DOM, as pandoc is pan + doc): its
+document AST for other languages, generated from
 [pandoc-types](https://github.com/jgm/pandoc-types) rather than written by
 hand: types, pandoc's JSON encoding, checks with useful errors, and filters.
 
@@ -10,10 +11,10 @@ libpandoc's bindings, unchanged.
 
 | language | status | package |
 |---|---|---|
-| Python | working | [`python/`](python/): `libpandoc-ast` on PyPI (not yet published) |
-| Rust | prototype | [`rust/`](rust/): crate `libpandoc-ast` |
-| TypeScript | prototype | [`ts/`](ts/): npm `libpandoc-ast`, browser and Node.js |
-| Julia | prototype | [`julia/`](julia/): `LibPandocAST.jl` |
+| Python | working | [`python/`](python/): `pandom` on PyPI (not yet published) |
+| Rust | prototype | [`rust/`](rust/): crate `pandom` |
+| TypeScript | prototype | [`ts/`](ts/): npm `pandom-js` (`pandom` is taken), browser and Node.js |
+| Julia | prototype | [`julia/`](julia/): `Pandom.jl` |
 
 Each follows its language's idioms, from the same schema:
 

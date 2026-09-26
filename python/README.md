@@ -1,11 +1,11 @@
-# libpandoc-ast
+# pandom
 
 pandoc's document AST in Python, generated from pandoc-types: checked types,
 pandoc's JSON, and filters that run under `pandoc --filter` or in-process
 with [libpandoc](https://github.com/ickc/libpandoc-python).
 
 ```python
-from libpandoc_ast import Filter, Header, Str
+from pandom import Filter, Header, Str
 
 f = Filter()
 
@@ -26,7 +26,7 @@ are `Block`s, `Str` and `Emph` are `Inline`s. Fields have pandoc-types' names
 and order, as in pandoc's Lua API: `Header(level, *content, attr=...)`.
 
 ```python
->>> from libpandoc_ast import *
+>>> from pandom import *
 >>> h = Header(1, Str("Intro"), identifier="intro")
 >>> h
 Header(1, Str('Intro'), identifier='intro')

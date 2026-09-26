@@ -1,6 +1,6 @@
 //! The shared corpus: what every binding must accept and reject.
 
-use libpandoc_ast::{from_str, to_string};
+use pandom::{from_str, to_string};
 use std::path::PathBuf;
 
 fn corpus(name: &str) -> Vec<String> {
