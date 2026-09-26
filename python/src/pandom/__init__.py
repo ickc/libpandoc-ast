@@ -4,7 +4,8 @@
   fields; ``Pandoc`` is a document;
 - JSON: ``loads``/``dumps`` (and ``Node.from_json``/``to_json``), pandoc's
   own encoding;
-- filters: ``Filter``, and ``walk`` underneath;
+- filters: ``Filter``, and ``walk`` underneath; ``Conversion``, the pandoc
+  run a filter is part of, which parses fragments as the document was read;
 - ``stringify``, and metadata to and from Python (``to_python``,
   ``from_python``).
 """
@@ -19,6 +20,7 @@ from ._core import ASTDecodeError, ASTError, ASTTypeError, Node, NodeDict, NodeL
 from ._types import *  # noqa: F403  the AST classes
 from ._types import Pandoc
 from ._walk import Context, walk
+from .conversion import Conversion
 from .filter import Filter, run
 from .util import from_python, stringify, to_python
 
@@ -50,6 +52,7 @@ __all__ = [
     "ASTError",
     "ASTTypeError",
     "Context",
+    "Conversion",
     "Filter",
     "Node",
     "NodeDict",

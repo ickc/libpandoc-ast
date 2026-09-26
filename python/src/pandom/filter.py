@@ -12,7 +12,9 @@
         f.main()  # pandoc --filter ./demote.py
 
 The same ``f`` also runs in Python: ``f(doc)`` on a ``Pandoc``, or
-``libpandoc.convert(..., filters=[f])``.
+``libpandoc.convert(..., filters=[f])``, in process. A function that takes
+a ``Context`` can parse fragments as the document was read, with
+``ctx.read(text)`` (see ``pandom.conversion``).
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ from typing import Any, TypeVar
 from ._core import Node, add_note
 from ._types import Pandoc
 from ._walk import Context, walk
+from .conversion import Conversion
 
 __all__ = ["Filter", "run"]
 
@@ -95,13 +98,19 @@ class Filter:
                 e._pandom_noted = True  # type: ignore[attr-defined]
             raise
 
-    def __call__(self, doc: Pandoc, format: str | None = None) -> Pandoc:
-        """Apply the filter to a document (in place), and return it."""
+    def __call__(
+        self, doc: Pandoc, format: str | None = None, *, conversion: Conversion | None = None
+    ) -> Pandoc:
+        """Apply the filter to a document (in place), and return it.
+
+        ``conversion`` describes the pandoc run (``ctx.conversion``); given
+        only ``format``, that is all it knows.
+        """
         result = walk(
             doc,
             self._action,
             top_down=self.top_down,
-            format=format,
+            conversion=conversion if conversion is not None else Conversion(format),
             wants=lambda ty: self._handler(ty) is not None,
         )
         if not isinstance(result, Pandoc):
@@ -110,29 +119,43 @@ class Filter:
             )
         return result
 
-    def run_json(self, text: str | bytes, format: str | None = None) -> str:
+    def run_json(
+        self,
+        text: str | bytes,
+        format: str | None = None,
+        *,
+        conversion: Conversion | None = None,
+    ) -> str:
         """Apply the filter to a document in pandoc's JSON."""
         doc = Pandoc.from_json(json.loads(text))
-        return json.dumps(self(doc, format).to_json(), ensure_ascii=False, separators=(",", ":"))
+        out = self(doc, format, conversion=conversion)
+        return json.dumps(out.to_json(), ensure_ascii=False, separators=(",", ":"))
 
     def main(self, argv: list[str] | None = None) -> None:
         """Run as a pandoc JSON filter: a document on stdin, to stdout.
 
-        pandoc passes the output format as the first argument.
+        pandoc passes the output format as the first argument, and the
+        reader's options in the environment.
         """
-        argv = sys.argv[1:] if argv is None else argv
+        conversion = Conversion.from_environment(argv)
         stdin = io.TextIOWrapper(sys.stdin.buffer, encoding="utf-8")
-        out = self.run_json(stdin.read(), argv[0] if argv else None)
+        out = self.run_json(stdin.read(), conversion=conversion)
         stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
         stdout.write(out)
         stdout.flush()
         stdout.detach()
 
 
-def run(doc: Pandoc, filters: Iterable[Filter], format: str | None = None) -> Pandoc:
+def run(
+    doc: Pandoc,
+    filters: Iterable[Filter],
+    format: str | None = None,
+    *,
+    conversion: Conversion | None = None,
+) -> Pandoc:
     """Apply filters in turn, as ``pandoc --filter a --filter b`` does."""
     for f in filters:
-        doc = f(doc, format)
+        doc = f(doc, format, conversion=conversion)
     return doc
 
 

@@ -91,5 +91,32 @@ function and the node's path.
 `f.main()` runs a filter under pandoc; `f(doc)` on a document; `run(doc,
 [f, g])` several in turn. `walk(node, action)` is the walk underneath.
 
+### Calling pandoc from a filter
+
+`ctx.read(text)` parses a fragment, such as a table cell or an attribute,
+the way the document was read, and returns its blocks:
+
+```python
+@f.on(CodeBlock)
+def cell(code, ctx):
+    if "cell" in code.classes:
+        return ctx.read(code.text)
+```
+
+`ctx.conversion` is what the filter knows of the pandoc run it is part of,
+and that depends on who runs it:
+
+- **in process, with [libpandoc](https://github.com/ickc/libpandoc-python)**
+  (`libpandoc.convert(..., filters=[f])`, `pandocpy -F`): the input format
+  pandoc decided on (`input_format`, with extensions), the output format and
+  the conversion's `options`. `read` uses exactly that reader, in the same
+  process.
+- **as a JSON filter** (`pandoc --filter`): the output format's name and the
+  reader's options. pandoc doesn't tell JSON filters the input format, so
+  `read` assumes markdown unless given one: `ctx.read(text, "rst")`.
+
+`read` calls pandoc through libpandoc when it is installed, else the `pandoc`
+executable (or `$PANDOC`).
+
 Also: `loads`/`dumps`/`load`/`dump` for pandoc's JSON, `stringify`,
 `to_python`/`from_python` for metadata.

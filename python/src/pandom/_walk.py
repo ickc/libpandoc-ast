@@ -22,6 +22,7 @@ from ._core import (
     _TupleSpec,
     format_path,
 )
+from .conversion import Conversion
 
 __all__ = ["Context", "walk"]
 
@@ -33,13 +34,17 @@ class Context:
     its position in that field's list (or key in its map, or ``None``).
     ``next`` and ``prev`` are its neighbours in that list. ``path`` is its
     position from the document, as in errors: ``blocks[3].content[1]``.
+
+    ``conversion`` is the pandoc run the filter is part of (``format`` is its
+    output format's name), and ``read(text)`` parses a fragment as that run
+    reads its input.
     """
 
-    __slots__ = ("_frames", "container", "doc", "field", "format", "index", "parent")
+    __slots__ = ("_frames", "container", "conversion", "doc", "field", "format", "index", "parent")
 
-    def __init__(self, frames: tuple, doc: Any, format: str | None) -> None:
+    def __init__(self, frames: tuple, doc: Any, conversion: Conversion) -> None:
         self._frames = frames
-        self.doc, self.format = doc, format
+        self.doc, self.conversion, self.format = doc, conversion, conversion.format
         if frames:
             self.parent, self.field, self.container, self.index = frames[-1]
         else:
@@ -74,6 +79,13 @@ class Context:
         i = self.index + step
         return self.container[i] if 0 <= i < len(self.container) else None
 
+    def read(self, text: str, format: str | None = None) -> list:
+        """Parse ``text`` as the document was read: a list of blocks.
+
+        ``format`` overrides the input format. See ``Conversion.read``.
+        """
+        return self.conversion.read(text, format)
+
     @property
     def next(self) -> Any:
         return self._sibling(1)
@@ -104,15 +116,15 @@ class _Walker:
         action: Action,
         top_down: bool,
         doc: Any,
-        format: str | None,
+        conversion: Conversion,
         wants: Callable[[type], bool],
     ) -> None:
         self.action, self.top_down = action, top_down
-        self.doc, self.format, self.wants = doc, format, wants
+        self.doc, self.conversion, self.wants = doc, conversion, wants
         self.frames: list = []
 
     def call(self, node: Node) -> Any:
-        return self.action(node, Context(tuple(self.frames), self.doc, self.format))
+        return self.action(node, Context(tuple(self.frames), self.doc, self.conversion))
 
     # a node in a position that holds one node
     def one(self, node: Node, where: str) -> Node:
@@ -243,6 +255,7 @@ def walk(
     *,
     top_down: bool = False,
     format: str | None = None,
+    conversion: Conversion | None = None,
     doc: Any = None,
     wants: Callable[[type], bool] | None = None,
 ) -> Any:
@@ -253,7 +266,11 @@ def walk(
     replace it, or, in a list, a list of nodes to splice in its place (``[]``
     deletes it). Top-down, children are those of the replacement.
 
+    ``conversion`` (or just its output ``format``) is what ``ctx.conversion``
+    tells the action.
+
     Returns ``node``, or what replaced it.
     """
-    w = _Walker(action, top_down, node if doc is None else doc, format, wants or (lambda ty: True))
+    conv = conversion if conversion is not None else Conversion(format)
+    w = _Walker(action, top_down, node if doc is None else doc, conv, wants or (lambda ty: True))
     return w.one(node, type(node).__name__)
