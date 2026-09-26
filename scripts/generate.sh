@@ -17,3 +17,5 @@ mv "$out/arbitrary.jsonl" corpus/arbitrary.jsonl
 python3 tools/derive.py
 python3 tools/gen_python.py
 ruff format -q python/src/libpandoc_ast/_types.py
+python3 tools/gen_rust.py
+rustfmt --edition 2021 rust/src/generated.rs

@@ -25,6 +25,9 @@ jobs:
       - uses: prefix-dev/setup-pixi@v0.10.2
         with:
           cache: true
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
       - name: Regenerate
         run: pixi run bash scripts/generate.sh
       - name: Generated files are current
@@ -63,3 +66,34 @@ jobs:
         with:
           name: python-wheel
           path: wheelhouse/*.whl
+
+  rust:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-15, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - uses: prefix-dev/setup-pixi@v0.10.2
+        with:
+          cache: true
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+      - name: The example runs as a pandoc filter
+        shell: bash
+        run: |
+          cargo build --example upper
+          out=$(echo 'some *text*' | pixi run --manifest-path ../pixi.toml pandoc --filter target/debug/examples/upper -t plain)
+          echo "$out"
+          [ "$out" = "SOME TEXT" ]
