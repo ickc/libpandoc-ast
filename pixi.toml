@@ -17,14 +17,20 @@ python = "3.10.*"
 [feature.py314.dependencies]
 python = "3.14.*"
 
+[feature.ts.dependencies]
+nodejs = "24.*"
+typescript = "*"
+
 [environments]
 py310 = ["py310"]
 py314 = ["py314"]
+ts = ["ts"]
 
 [tasks]
 # everything derived from schema/reified.json and the corpus (no Haskell)
 derive = "python tools/derive.py"
 gen-python = { cmd = "python tools/gen_python.py && ruff format -q python/src/libpandoc_ast/_types.py", depends-on = ["derive"] }
 gen-rust = { cmd = "python tools/gen_rust.py && rustfmt --edition 2021 rust/src/generated.rs", depends-on = ["derive"] }
+gen-ts = { cmd = "python tools/gen_ts.py", depends-on = ["derive"] }
 test-python = { cmd = "pytest -q python/tests", env = { PYTHONPATH = "python/src" } }
 lint = "ruff check python tools && ruff format --check python/src python/tests tools && pyright -p python/pyrightconfig.json"

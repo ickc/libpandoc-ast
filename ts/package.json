@@ -1,0 +1,44 @@
+{
+  "name": "libpandoc-ast",
+  "version": "0.1.0",
+  "description": "pandoc's document AST, generated from pandoc-types: types, pandoc's JSON, checks, filters",
+  "license": "BSD-3-Clause",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ickc/libpandoc-ast.git",
+    "directory": "ts"
+  },
+  "keywords": [
+    "pandoc",
+    "ast",
+    "markdown",
+    "filter"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "default": "./dist/node.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test \"test/*.test.ts\""
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.0",
+    "typescript": "^6.0.3"
+  }
+}

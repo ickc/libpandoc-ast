@@ -29,8 +29,27 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "rust/src/generated.rs"
 
 PRIM = {"string": "String", "int": "i64", "double": "f64", "bool": "bool"}
-KEYWORDS = {"type", "match", "ref", "mod", "move", "fn", "impl", "use", "where", "self",
-            "loop", "box", "yield", "async", "await", "dyn", "abstract", "final", "override"}
+KEYWORDS = {
+    "type",
+    "match",
+    "ref",
+    "mod",
+    "move",
+    "fn",
+    "impl",
+    "use",
+    "where",
+    "self",
+    "loop",
+    "box",
+    "yield",
+    "async",
+    "await",
+    "dyn",
+    "abstract",
+    "final",
+    "override",
+}
 
 
 def snake(name: str) -> str:
@@ -100,8 +119,10 @@ class Gen:
         api = self.schema["pandoc-api-version"]
         o = self.out
         o.append(HEADER.format(api=".".join(map(str, api))))
-        o.append(f"/// The pandoc-types API version these types are for.\n"
-                 f"pub const PANDOC_API_VERSION: [i64; {len(api)}] = {api!r};\n\n")
+        o.append(
+            f"/// The pandoc-types API version these types are for.\n"
+            f"pub const PANDOC_API_VERSION: [i64; {len(api)}] = {api!r};\n\n"
+        )
         for t in self.schema["types"]:
             getattr(self, t["kind"])(t)
         self.visitor()
@@ -114,7 +135,7 @@ class Gen:
     def enum(self, t: dict) -> None:
         o = self.out
         o.append(f"/// pandoc's `{t['name']}`.\n")
-        o.append('#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]\n')
+        o.append("#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]\n")
         o.append('#[serde(tag = "t")]\n')
         o.append(f"pub enum {t['name']} {{\n")
         o.extend(f"    {v},\n" for v in t["values"])
@@ -156,16 +177,18 @@ class Gen:
         o.append(f"/// {doc}\n#[derive({', '.join(derives)})]\n")
         o.append(f"pub struct {name} {{\n")
         if encoding == "root":
-            o.append('    #[serde(rename = "pandoc-api-version")]\n'
-                     "    pub api_version: Vec<i64>,\n")
+            o.append(
+                '    #[serde(rename = "pandoc-api-version")]\n    pub api_version: Vec<i64>,\n'
+            )
         for f in fields:
             if "key" in f and f["key"] != f["name"]:
                 o.append(f'    #[serde(rename = "{f["key"]}")]\n')
             o.append(f"    pub {ident(f['name'])}: {self.rust(f['type'])},\n")
         o.append("}\n\n")
         if self.has_default(t):
-            o.append(f"impl Default for {name} {{\n"
-                     f"    fn default() -> Self {{\n        {name} {{\n")
+            o.append(
+                f"impl Default for {name} {{\n    fn default() -> Self {{\n        {name} {{\n"
+            )
             if encoding == "root":
                 o.append("            api_version: PANDOC_API_VERSION.to_vec(),\n")
             for f in fields:
@@ -176,14 +199,18 @@ class Gen:
             refs = ", ".join(f"&self.{ident(f['name'])}" for f in fields)
             types = ", ".join(self.rust(f["type"]) for f in fields)
             names = ", ".join(ident(f["name"]) for f in fields)
-            o.append(f"impl Serialize for {name} {{\n"
-                     f"    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {{\n"
-                     f"        ({refs}).serialize(s)\n    }}\n}}\n\n")
-            o.append(f"impl<'de> Deserialize<'de> for {name} {{\n"
-                     f"    fn deserialize<D: Deserializer<'de>>(d: D)"
-                     f" -> Result<Self, D::Error> {{\n"
-                     f"        let ({names}) = <({types})>::deserialize(d)?;\n"
-                     f"        Ok({name} {{ {names} }})\n    }}\n}}\n\n")
+            o.append(
+                f"impl Serialize for {name} {{\n"
+                f"    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {{\n"
+                f"        ({refs}).serialize(s)\n    }}\n}}\n\n"
+            )
+            o.append(
+                f"impl<'de> Deserialize<'de> for {name} {{\n"
+                f"    fn deserialize<D: Deserializer<'de>>(d: D)"
+                f" -> Result<Self, D::Error> {{\n"
+                f"        let ({names}) = <({types})>::deserialize(d)?;\n"
+                f"        Ok({name} {{ {names} }})\n    }}\n}}\n\n"
+            )
 
     # -- the visitor ----------------------------------------------------------
 
@@ -214,8 +241,11 @@ class Gen:
             ty = self.resolve(ty)
             if "list" in ty:
                 inner = self.resolve(ty["list"])
-                if "ref" in inner and self.types[inner["ref"]]["kind"] == "sum" \
-                        and inner["ref"] not in seen:
+                if (
+                    "ref" in inner
+                    and self.types[inner["ref"]]["kind"] == "sum"
+                    and inner["ref"] not in seen
+                ):
                     seen.append(inner["ref"])
                 scan(ty["list"])
             for k in ("maybe",):
@@ -254,8 +284,9 @@ class Gen:
             body = self.visit_expr(ty["map"][1], v, depth + 1)
             return f"for {v} in ({x}).values_mut() {{ {body} }}"
         if "tuple" in ty:
-            parts = [self.visit_expr(t, f"&mut ({x}).{i}", depth + 1)
-                     for i, t in enumerate(ty["tuple"])]
+            parts = [
+                self.visit_expr(t, f"&mut ({x}).{i}", depth + 1) for i, t in enumerate(ty["tuple"])
+            ]
             return " ".join(p for p in parts if p)
         return None
 
@@ -266,24 +297,32 @@ class Gen:
         o.append("pub trait VisitMut {\n")
         for t in self.node_types():
             n = snake(t["name"])
-            o.append(f"    fn visit_{n}(&mut self, x: &mut {t['name']}) {{\n"
-                     f"        walk_{n}(self, x)\n    }}\n")
+            o.append(
+                f"    fn visit_{n}(&mut self, x: &mut {t['name']}) {{\n"
+                f"        walk_{n}(self, x)\n    }}\n"
+            )
         for name in self.lists:
             n = snake(name)
-            o.append(f"    /// The {name}s of one list, e.g. to splice or remove some.\n"
-                     f"    fn visit_{n}s(&mut self, xs: &mut Vec<{name}>) {{\n"
-                     f"        walk_{n}s(self, xs)\n    }}\n")
+            o.append(
+                f"    /// The {name}s of one list, e.g. to splice or remove some.\n"
+                f"    fn visit_{n}s(&mut self, xs: &mut Vec<{name}>) {{\n"
+                f"        walk_{n}s(self, xs)\n    }}\n"
+            )
         o.append("}\n\n")
         for name in self.lists:
             n = snake(name)
-            o.append(f"/// Visits each {name} of a list.\n"
-                     f"pub fn walk_{n}s<V: VisitMut + ?Sized>(v: &mut V, xs: &mut Vec<{name}>) {{\n"
-                     f"    for x in xs.iter_mut() {{\n        v.visit_{n}(x);\n    }}\n}}\n\n")
+            o.append(
+                f"/// Visits each {name} of a list.\n"
+                f"pub fn walk_{n}s<V: VisitMut + ?Sized>(v: &mut V, xs: &mut Vec<{name}>) {{\n"
+                f"    for x in xs.iter_mut() {{\n        v.visit_{n}(x);\n    }}\n}}\n\n"
+            )
         for t in self.node_types():
             n = snake(t["name"])
-            o.append(f"/// Visits the children of a {t['name']}.\n"
-                     f"#[allow(unused_variables)]\n"
-                     f"pub fn walk_{n}<V: VisitMut + ?Sized>(v: &mut V, x: &mut {t['name']}) {{\n")
+            o.append(
+                f"/// Visits the children of a {t['name']}.\n"
+                f"#[allow(unused_variables)]\n"
+                f"pub fn walk_{n}<V: VisitMut + ?Sized>(v: &mut V, x: &mut {t['name']}) {{\n"
+            )
             if t["kind"] == "product":
                 for f in t["fields"]:
                     s = self.visit_expr(f["type"], f"&mut x.{ident(f['name'])}")
@@ -298,8 +337,9 @@ class Gen:
                         if s:
                             arms.append(f"        {t['name']}::{c['name']}(y) => {{ {s} }}\n")
                     elif len(fs) > 1:
-                        stmts = [self.visit_expr(f["type"], f"&mut y.{ident(f['name'])}")
-                                 for f in fs]
+                        stmts = [
+                            self.visit_expr(f["type"], f"&mut y.{ident(f['name'])}") for f in fs
+                        ]
                         stmts = [s for s in stmts if s]
                         if stmts:
                             body = " ".join(stmts)

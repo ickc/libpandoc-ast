@@ -19,3 +19,4 @@ python3 tools/gen_python.py
 ruff format -q python/src/libpandoc_ast/_types.py
 python3 tools/gen_rust.py
 rustfmt --edition 2021 rust/src/generated.rs
+python3 tools/gen_ts.py
