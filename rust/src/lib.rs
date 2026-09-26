@@ -65,6 +65,39 @@ pub fn to_string(doc: &Pandoc) -> String {
     serde_json::to_string(doc).expect("the AST always encodes")
 }
 
+/// Reads `{"t": tag}` for an enum-like type, checking the tag.
+#[doc(hidden)]
+pub fn de_tag<'de, D: serde::Deserializer<'de>>(
+    d: D,
+    name: &'static str,
+    tags: &'static [&'static str],
+) -> Result<String, D::Error> {
+    use serde::de::{self, MapAccess, Visitor};
+    struct V(&'static str, &'static [&'static str]);
+    impl<'de> Visitor<'de> for V {
+        type Value = String;
+        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "a {}: {{\"t\": ...}}", self.0)
+        }
+        fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<String, A::Error> {
+            let mut tag = None;
+            while let Some(key) = map.next_key::<String>()? {
+                if key == "t" {
+                    tag = Some(map.next_value::<String>()?);
+                } else {
+                    map.next_value::<de::IgnoredAny>()?;
+                }
+            }
+            let t = tag.ok_or_else(|| de::Error::missing_field("t"))?;
+            if !self.1.contains(&t.as_str()) {
+                return Err(de::Error::unknown_variant(&t, self.1));
+            }
+            Ok(t)
+        }
+    }
+    d.deserialize_map(V(name, tags))
+}
+
 impl Pandoc {
     /// A document with these blocks and no metadata.
     pub fn new(blocks: Vec<Block>) -> Self {

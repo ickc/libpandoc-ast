@@ -36,5 +36,14 @@ fn main() {
 - `from_str`/`to_string` for documents; `from_str` checks the
   `pandoc-api-version` and reports the path of JSON it can't read.
 
-Status: a prototype. Decoding errors give the path down to the innermost
-tagged value (serde buffers adjacently tagged enums), plus line and column.
+Decoding errors give the exact path in the JSON, plus line and column:
+
+```
+meta.author.c[0].c[2].c[2].c: invalid type: integer `42`, expected a string at line 1 column 244
+```
+
+(serde's derived adjacently tagged enums lose the path inside `"c"`, so the
+sum types' `Deserialize` is generated: it reads `"t"`, then decodes `"c"` in
+place.)
+
+Status: a prototype.

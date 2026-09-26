@@ -47,7 +47,8 @@ schema/pandoc-ast.json ──(tools/gen_<language>.py)──> each language's de
   that pandoc-types' own aeson instances encoded, covering every
   constructor; every binding must decode and re-encode each one unchanged.
   `invalid.jsonl` holds documents each binding must reject, each with the
-  path of the offending value, which the binding must report. `pandoc.jsonl`
+  path of the offending value (in field names, and in the JSON), which the
+  binding must report. `pandoc.jsonl`
   is pandoc's own output for `corpus/*.md`.
 - **Each language** generates declarations only (classes, fields, encodings)
   and has a small hand-written, generic runtime that reads them. Nothing in a

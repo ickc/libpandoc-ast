@@ -135,17 +135,21 @@ class Gen:
     def enum(self, t: dict) -> None:
         o = self.out
         o.append(f"/// pandoc's `{t['name']}`.\n")
-        o.append("#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]\n")
+        o.append("#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]\n")
         o.append('#[serde(tag = "t")]\n')
         o.append(f"pub enum {t['name']} {{\n")
         o.extend(f"    {v},\n" for v in t["values"])
         o.append("}\n\n")
+        name = t["name"]
+        tags = ", ".join(json.dumps(v) for v in t["values"])
+        arms = "".join(f'                "{v}" => {name}::{v},\n' for v in t["values"])
+        o.append(ENUM_DE.format(name=name, tags=tags, arms=arms))
 
     def sum(self, t: dict) -> None:
         o = self.out
         structs = []
         o.append(f"/// pandoc's `{t['name']}`.\n")
-        o.append("#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]\n")
+        o.append("#[derive(Debug, Clone, PartialEq, Serialize)]\n")
         o.append('#[serde(tag = "t", content = "c")]\n')
         o.append(f"pub enum {t['name']} {{\n")
         for c in t["constructors"]:
@@ -158,10 +162,34 @@ class Gen:
                 o.append(f"    {c['name']}({c['name']}),\n")
                 structs.append(c)
         o.append("}\n\n")
+        self.sum_de(t)
         for c in structs:
             if c["name"] in self.types:
                 raise SystemExit(f"constructor {c['name']} clashes with a type name")
             self.struct(c, "array", f"pandoc's `{c['name']}`, a `{t['name']}`.")
+
+    def sum_de(self, t: dict) -> None:
+        """Deserialize reading "t" then "c" in place, so that errors inside
+        "c" keep their path (serde's derive buffers "c" and loses it)."""
+        name = t["name"]
+        tags = ", ".join(json.dumps(c["name"]) for c in t["constructors"])
+        units = [c["name"] for c in t["constructors"] if not c["fields"]]
+        stream, early = [], []
+        for c in t["constructors"]:
+            cn = c["name"]
+            if not c["fields"]:
+                skip = "map.next_value::<de::IgnoredAny>()?;"
+                stream.append(f'{" " * 24}"{cn}" => {{ {skip} {name}::{cn} }}\n')
+                early.append(f'                "{cn}" => {name}::{cn},\n')
+            else:
+                stream.append(f'{" " * 24}"{cn}" => {name}::{cn}(map.next_value()?),\n')
+                early.append(f'                "{cn}" => {name}::{cn}(json(c)?),\n')
+        unit_arms = "".join(f'                    "{u}" => Some({name}::{u}),\n' for u in units)
+        self.out.append(
+            SUM_DE.format(
+                name=name, tags=tags, stream="".join(stream), early="".join(early), units=unit_arms
+            )
+        )
 
     def product(self, t: dict) -> None:
         self.struct(t, t["encoding"], f"pandoc's `{t['name']}`.")
@@ -359,8 +387,93 @@ HEADER = """\
 
 #![allow(clippy::all)]
 
+use serde::de;
 use serde::{{Deserialize, Deserializer, Serialize, Serializer}};
 use std::collections::BTreeMap;
+
+"""
+
+ENUM_DE = """\
+impl<'de> Deserialize<'de> for {name} {{
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {{
+        const TAGS: &[&str] = &[{tags}];
+        let t = crate::de_tag(d, "{name}", TAGS)?;
+        Ok(match t.as_str() {{
+{arms}            _ => unreachable!(),
+        }})
+    }}
+}}
+
+"""
+
+SUM_DE = """\
+impl<'de> Deserialize<'de> for {name} {{
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {{
+        const TAGS: &[&str] = &[{tags}];
+        struct V;
+        impl<'de> de::Visitor<'de> for V {{
+            type Value = {name};
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {{
+                f.write_str("a {name}: {{\\"t\\": ..., \\"c\\": ...}}")
+            }}
+            fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<{name}, A::Error> {{
+                let mut tag: Option<String> = None;
+                let mut value: Option<{name}> = None;
+                let mut early: Option<serde_json::Value> = None;
+                while let Some(key) = map.next_key::<String>()? {{
+                    if key == "t" {{
+                        let t: String = map.next_value()?;
+                        if !TAGS.contains(&t.as_str()) {{
+                            return Err(de::Error::unknown_variant(&t, TAGS));
+                        }}
+                        value = match early.take() {{
+                            Some(c) => Some(from_value(&t, c)?),
+                            None => unit(&t),
+                        }};
+                        tag = Some(t);
+                    }} else if key == "c" {{
+                        match tag.as_deref() {{
+                            None => early = Some(map.next_value()?),
+                            Some(t) => value = Some(match t {{
+{stream}                        _ => unreachable!(),
+                            }}),
+                        }}
+                    }} else {{
+                        map.next_value::<de::IgnoredAny>()?;
+                    }}
+                }}
+                match (tag, value) {{
+                    (_, Some(v)) => Ok(v),
+                    (None, _) => Err(de::Error::missing_field("t")),
+                    (Some(_), None) => Err(de::Error::missing_field("c")),
+                }}
+            }}
+        }}
+        // "c" before "t" (not pandoc's order): decode it once "t" is known
+        fn from_value<E: de::Error>(t: &str, c: serde_json::Value) -> Result<{name}, E> {{
+            fn json<T: de::DeserializeOwned, E: de::Error>(c: serde_json::Value) -> Result<T, E> {{
+                serde_path_to_error::deserialize(c).map_err(|e| {{
+                    let p = e.path().to_string();
+                    let at = match p.as_str() {{
+                        "." => "c".to_string(),
+                        p if p.starts_with('[') => format!("c{{p}}"),
+                        p => format!("c.{{p}}"),
+                    }};
+                    E::custom(format!("{{at}}: {{}}", e.inner()))
+                }})
+            }}
+            Ok(match t {{
+{early}                _ => unreachable!(),
+            }})
+        }}
+        fn unit(t: &str) -> Option<{name}> {{
+            match t {{
+{units}                    _ => None,
+            }}
+        }}
+        d.deserialize_map(V)
+    }}
+}}
 
 """
 

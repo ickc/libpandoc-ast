@@ -350,6 +350,49 @@ class Walker:
             yield from self.walk(x, f["type"], path + [f["name"]])
 
 
+def json_path(schema: dict, doc, path: list) -> list:
+    """The path in the JSON of the value at an AST path (``c`` and indices)."""
+    types = {t["name"]: t for t in schema["types"]}
+    ty, j, out, i = {"ref": schema["root"]}, doc, [], 0
+    while i < len(path):
+        seg = path[i]
+        if "maybe" in ty:
+            ty = ty["maybe"]
+            continue
+        if "ref" in ty and types[ty["ref"]]["kind"] == "alias":
+            ty = types[ty["ref"]]["type"]
+            continue
+        if "list" in ty or "map" in ty or "tuple" in ty:
+            out.append(seg)
+            # the value may not exist before the mutation adds it: go on by type
+            try:
+                j = j[seg]
+            except (IndexError, KeyError, TypeError):
+                j = None
+            ty = ty["list"] if "list" in ty else ty["map"][1] if "map" in ty else ty["tuple"][seg]
+        else:
+            t = types[ty["ref"]]
+            con = (
+                next(c for c in t["constructors"] if c["name"] == j["t"])
+                if t["kind"] == "sum"
+                else t
+            )
+            k = next(n for n, f in enumerate(con["fields"]) if f["name"] == seg)
+            f = con["fields"][k]
+            if t["kind"] == "sum":
+                out.append("c")
+                j = j["c"]
+            if con["encoding"] == "array":
+                out.append(k)
+                j = j[k] if j is not None else None
+            elif con["encoding"] in ("object", "root"):
+                out.append(f["key"])
+                j = j[f["key"]] if j is not None else None
+            ty = f["type"]
+        i += 1
+    return out
+
+
 def invalid_cases(schema: dict, docs: list[dict]) -> list[dict]:
     """Documents that must be rejected, each with where and why.
 
@@ -370,8 +413,12 @@ def invalid_cases(schema: dict, docs: list[dict]) -> list[dict]:
             found = candidates(doc, pred)
             if found:
                 j, ty, path = rng.choice(found)
+                full = path + list(at)
+                jpath = json_path(schema, doc, full)
                 mutate(j)
-                cases.append({"name": name, "why": why, "path": path + list(at), "document": doc})
+                cases.append(
+                    {"name": name, "why": why, "path": full, "json_path": jpath, "document": doc}
+                )
                 return
         fail(f"no document has a place for the invalid case {name}")
 
@@ -555,12 +602,21 @@ def invalid_cases(schema: dict, docs: list[dict]) -> list[dict]:
             "name": "api-version",
             "why": "pandoc-api-version 1.22 isn't 1.23",
             "path": ["pandoc-api-version"],
+            "json_path": ["pandoc-api-version"],
             "document": doc,
         }
     )
     doc = copy.deepcopy(docs[0])
     del doc["blocks"]
-    cases.append({"name": "no-blocks", "why": "a document has blocks", "path": [], "document": doc})
+    cases.append(
+        {
+            "name": "no-blocks",
+            "why": "a document has blocks",
+            "path": [],
+            "json_path": [],
+            "document": doc,
+        }
+    )
     return cases
 
 

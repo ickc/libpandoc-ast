@@ -5,6 +5,7 @@
 
 #![allow(clippy::all)]
 
+use serde::de;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::BTreeMap;
 
@@ -34,7 +35,7 @@ impl Default for Pandoc {
 pub type Meta = BTreeMap<String, MetaValue>;
 
 /// pandoc's `Block`.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "t", content = "c")]
 pub enum Block {
     Plain(Vec<Inline>),
@@ -51,6 +52,123 @@ pub enum Block {
     Table(Table),
     Figure(Figure),
     Div(Div),
+}
+
+impl<'de> Deserialize<'de> for Block {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        const TAGS: &[&str] = &[
+            "Plain",
+            "Para",
+            "LineBlock",
+            "CodeBlock",
+            "RawBlock",
+            "BlockQuote",
+            "OrderedList",
+            "BulletList",
+            "DefinitionList",
+            "Header",
+            "HorizontalRule",
+            "Table",
+            "Figure",
+            "Div",
+        ];
+        struct V;
+        impl<'de> de::Visitor<'de> for V {
+            type Value = Block;
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("a Block: {\"t\": ..., \"c\": ...}")
+            }
+            fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<Block, A::Error> {
+                let mut tag: Option<String> = None;
+                let mut value: Option<Block> = None;
+                let mut early: Option<serde_json::Value> = None;
+                while let Some(key) = map.next_key::<String>()? {
+                    if key == "t" {
+                        let t: String = map.next_value()?;
+                        if !TAGS.contains(&t.as_str()) {
+                            return Err(de::Error::unknown_variant(&t, TAGS));
+                        }
+                        value = match early.take() {
+                            Some(c) => Some(from_value(&t, c)?),
+                            None => unit(&t),
+                        };
+                        tag = Some(t);
+                    } else if key == "c" {
+                        match tag.as_deref() {
+                            None => early = Some(map.next_value()?),
+                            Some(t) => {
+                                value = Some(match t {
+                                    "Plain" => Block::Plain(map.next_value()?),
+                                    "Para" => Block::Para(map.next_value()?),
+                                    "LineBlock" => Block::LineBlock(map.next_value()?),
+                                    "CodeBlock" => Block::CodeBlock(map.next_value()?),
+                                    "RawBlock" => Block::RawBlock(map.next_value()?),
+                                    "BlockQuote" => Block::BlockQuote(map.next_value()?),
+                                    "OrderedList" => Block::OrderedList(map.next_value()?),
+                                    "BulletList" => Block::BulletList(map.next_value()?),
+                                    "DefinitionList" => Block::DefinitionList(map.next_value()?),
+                                    "Header" => Block::Header(map.next_value()?),
+                                    "HorizontalRule" => {
+                                        map.next_value::<de::IgnoredAny>()?;
+                                        Block::HorizontalRule
+                                    }
+                                    "Table" => Block::Table(map.next_value()?),
+                                    "Figure" => Block::Figure(map.next_value()?),
+                                    "Div" => Block::Div(map.next_value()?),
+                                    _ => unreachable!(),
+                                })
+                            }
+                        }
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
+                    }
+                }
+                match (tag, value) {
+                    (_, Some(v)) => Ok(v),
+                    (None, _) => Err(de::Error::missing_field("t")),
+                    (Some(_), None) => Err(de::Error::missing_field("c")),
+                }
+            }
+        }
+        // "c" before "t" (not pandoc's order): decode it once "t" is known
+        fn from_value<E: de::Error>(t: &str, c: serde_json::Value) -> Result<Block, E> {
+            fn json<T: de::DeserializeOwned, E: de::Error>(c: serde_json::Value) -> Result<T, E> {
+                serde_path_to_error::deserialize(c).map_err(|e| {
+                    let p = e.path().to_string();
+                    let at = match p.as_str() {
+                        "." => "c".to_string(),
+                        p if p.starts_with('[') => format!("c{p}"),
+                        p => format!("c.{p}"),
+                    };
+                    E::custom(format!("{at}: {}", e.inner()))
+                })
+            }
+            Ok(match t {
+                "Plain" => Block::Plain(json(c)?),
+                "Para" => Block::Para(json(c)?),
+                "LineBlock" => Block::LineBlock(json(c)?),
+                "CodeBlock" => Block::CodeBlock(json(c)?),
+                "RawBlock" => Block::RawBlock(json(c)?),
+                "BlockQuote" => Block::BlockQuote(json(c)?),
+                "OrderedList" => Block::OrderedList(json(c)?),
+                "BulletList" => Block::BulletList(json(c)?),
+                "DefinitionList" => Block::DefinitionList(json(c)?),
+                "Header" => Block::Header(json(c)?),
+                "HorizontalRule" => Block::HorizontalRule,
+                "Table" => Block::Table(json(c)?),
+                "Figure" => Block::Figure(json(c)?),
+                "Div" => Block::Div(json(c)?),
+                _ => unreachable!(),
+            })
+        }
+        fn unit(t: &str) -> Option<Block> {
+            match t {
+                "HorizontalRule" => Some(Block::HorizontalRule),
+                _ => None,
+            }
+        }
+        d.deserialize_map(V)
+    }
 }
 
 /// pandoc's `CodeBlock`, a `Block`.
@@ -274,7 +392,7 @@ impl<'de> Deserialize<'de> for Div {
 }
 
 /// pandoc's `MetaValue`.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "t", content = "c")]
 pub enum MetaValue {
     MetaMap(BTreeMap<String, MetaValue>),
@@ -285,8 +403,97 @@ pub enum MetaValue {
     MetaBlocks(Vec<Block>),
 }
 
+impl<'de> Deserialize<'de> for MetaValue {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        const TAGS: &[&str] = &[
+            "MetaMap",
+            "MetaList",
+            "MetaBool",
+            "MetaString",
+            "MetaInlines",
+            "MetaBlocks",
+        ];
+        struct V;
+        impl<'de> de::Visitor<'de> for V {
+            type Value = MetaValue;
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("a MetaValue: {\"t\": ..., \"c\": ...}")
+            }
+            fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<MetaValue, A::Error> {
+                let mut tag: Option<String> = None;
+                let mut value: Option<MetaValue> = None;
+                let mut early: Option<serde_json::Value> = None;
+                while let Some(key) = map.next_key::<String>()? {
+                    if key == "t" {
+                        let t: String = map.next_value()?;
+                        if !TAGS.contains(&t.as_str()) {
+                            return Err(de::Error::unknown_variant(&t, TAGS));
+                        }
+                        value = match early.take() {
+                            Some(c) => Some(from_value(&t, c)?),
+                            None => unit(&t),
+                        };
+                        tag = Some(t);
+                    } else if key == "c" {
+                        match tag.as_deref() {
+                            None => early = Some(map.next_value()?),
+                            Some(t) => {
+                                value = Some(match t {
+                                    "MetaMap" => MetaValue::MetaMap(map.next_value()?),
+                                    "MetaList" => MetaValue::MetaList(map.next_value()?),
+                                    "MetaBool" => MetaValue::MetaBool(map.next_value()?),
+                                    "MetaString" => MetaValue::MetaString(map.next_value()?),
+                                    "MetaInlines" => MetaValue::MetaInlines(map.next_value()?),
+                                    "MetaBlocks" => MetaValue::MetaBlocks(map.next_value()?),
+                                    _ => unreachable!(),
+                                })
+                            }
+                        }
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
+                    }
+                }
+                match (tag, value) {
+                    (_, Some(v)) => Ok(v),
+                    (None, _) => Err(de::Error::missing_field("t")),
+                    (Some(_), None) => Err(de::Error::missing_field("c")),
+                }
+            }
+        }
+        // "c" before "t" (not pandoc's order): decode it once "t" is known
+        fn from_value<E: de::Error>(t: &str, c: serde_json::Value) -> Result<MetaValue, E> {
+            fn json<T: de::DeserializeOwned, E: de::Error>(c: serde_json::Value) -> Result<T, E> {
+                serde_path_to_error::deserialize(c).map_err(|e| {
+                    let p = e.path().to_string();
+                    let at = match p.as_str() {
+                        "." => "c".to_string(),
+                        p if p.starts_with('[') => format!("c{p}"),
+                        p => format!("c.{p}"),
+                    };
+                    E::custom(format!("{at}: {}", e.inner()))
+                })
+            }
+            Ok(match t {
+                "MetaMap" => MetaValue::MetaMap(json(c)?),
+                "MetaList" => MetaValue::MetaList(json(c)?),
+                "MetaBool" => MetaValue::MetaBool(json(c)?),
+                "MetaString" => MetaValue::MetaString(json(c)?),
+                "MetaInlines" => MetaValue::MetaInlines(json(c)?),
+                "MetaBlocks" => MetaValue::MetaBlocks(json(c)?),
+                _ => unreachable!(),
+            })
+        }
+        fn unit(t: &str) -> Option<MetaValue> {
+            match t {
+                _ => None,
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
 /// pandoc's `Inline`.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "t", content = "c")]
 pub enum Inline {
     Str(String),
@@ -309,6 +516,149 @@ pub enum Inline {
     Image(Image),
     Note(Vec<Block>),
     Span(Span),
+}
+
+impl<'de> Deserialize<'de> for Inline {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        const TAGS: &[&str] = &[
+            "Str",
+            "Emph",
+            "Underline",
+            "Strong",
+            "Strikeout",
+            "Superscript",
+            "Subscript",
+            "SmallCaps",
+            "Quoted",
+            "Cite",
+            "Code",
+            "Space",
+            "SoftBreak",
+            "LineBreak",
+            "Math",
+            "RawInline",
+            "Link",
+            "Image",
+            "Note",
+            "Span",
+        ];
+        struct V;
+        impl<'de> de::Visitor<'de> for V {
+            type Value = Inline;
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("a Inline: {\"t\": ..., \"c\": ...}")
+            }
+            fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<Inline, A::Error> {
+                let mut tag: Option<String> = None;
+                let mut value: Option<Inline> = None;
+                let mut early: Option<serde_json::Value> = None;
+                while let Some(key) = map.next_key::<String>()? {
+                    if key == "t" {
+                        let t: String = map.next_value()?;
+                        if !TAGS.contains(&t.as_str()) {
+                            return Err(de::Error::unknown_variant(&t, TAGS));
+                        }
+                        value = match early.take() {
+                            Some(c) => Some(from_value(&t, c)?),
+                            None => unit(&t),
+                        };
+                        tag = Some(t);
+                    } else if key == "c" {
+                        match tag.as_deref() {
+                            None => early = Some(map.next_value()?),
+                            Some(t) => {
+                                value = Some(match t {
+                                    "Str" => Inline::Str(map.next_value()?),
+                                    "Emph" => Inline::Emph(map.next_value()?),
+                                    "Underline" => Inline::Underline(map.next_value()?),
+                                    "Strong" => Inline::Strong(map.next_value()?),
+                                    "Strikeout" => Inline::Strikeout(map.next_value()?),
+                                    "Superscript" => Inline::Superscript(map.next_value()?),
+                                    "Subscript" => Inline::Subscript(map.next_value()?),
+                                    "SmallCaps" => Inline::SmallCaps(map.next_value()?),
+                                    "Quoted" => Inline::Quoted(map.next_value()?),
+                                    "Cite" => Inline::Cite(map.next_value()?),
+                                    "Code" => Inline::Code(map.next_value()?),
+                                    "Space" => {
+                                        map.next_value::<de::IgnoredAny>()?;
+                                        Inline::Space
+                                    }
+                                    "SoftBreak" => {
+                                        map.next_value::<de::IgnoredAny>()?;
+                                        Inline::SoftBreak
+                                    }
+                                    "LineBreak" => {
+                                        map.next_value::<de::IgnoredAny>()?;
+                                        Inline::LineBreak
+                                    }
+                                    "Math" => Inline::Math(map.next_value()?),
+                                    "RawInline" => Inline::RawInline(map.next_value()?),
+                                    "Link" => Inline::Link(map.next_value()?),
+                                    "Image" => Inline::Image(map.next_value()?),
+                                    "Note" => Inline::Note(map.next_value()?),
+                                    "Span" => Inline::Span(map.next_value()?),
+                                    _ => unreachable!(),
+                                })
+                            }
+                        }
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
+                    }
+                }
+                match (tag, value) {
+                    (_, Some(v)) => Ok(v),
+                    (None, _) => Err(de::Error::missing_field("t")),
+                    (Some(_), None) => Err(de::Error::missing_field("c")),
+                }
+            }
+        }
+        // "c" before "t" (not pandoc's order): decode it once "t" is known
+        fn from_value<E: de::Error>(t: &str, c: serde_json::Value) -> Result<Inline, E> {
+            fn json<T: de::DeserializeOwned, E: de::Error>(c: serde_json::Value) -> Result<T, E> {
+                serde_path_to_error::deserialize(c).map_err(|e| {
+                    let p = e.path().to_string();
+                    let at = match p.as_str() {
+                        "." => "c".to_string(),
+                        p if p.starts_with('[') => format!("c{p}"),
+                        p => format!("c.{p}"),
+                    };
+                    E::custom(format!("{at}: {}", e.inner()))
+                })
+            }
+            Ok(match t {
+                "Str" => Inline::Str(json(c)?),
+                "Emph" => Inline::Emph(json(c)?),
+                "Underline" => Inline::Underline(json(c)?),
+                "Strong" => Inline::Strong(json(c)?),
+                "Strikeout" => Inline::Strikeout(json(c)?),
+                "Superscript" => Inline::Superscript(json(c)?),
+                "Subscript" => Inline::Subscript(json(c)?),
+                "SmallCaps" => Inline::SmallCaps(json(c)?),
+                "Quoted" => Inline::Quoted(json(c)?),
+                "Cite" => Inline::Cite(json(c)?),
+                "Code" => Inline::Code(json(c)?),
+                "Space" => Inline::Space,
+                "SoftBreak" => Inline::SoftBreak,
+                "LineBreak" => Inline::LineBreak,
+                "Math" => Inline::Math(json(c)?),
+                "RawInline" => Inline::RawInline(json(c)?),
+                "Link" => Inline::Link(json(c)?),
+                "Image" => Inline::Image(json(c)?),
+                "Note" => Inline::Note(json(c)?),
+                "Span" => Inline::Span(json(c)?),
+                _ => unreachable!(),
+            })
+        }
+        fn unit(t: &str) -> Option<Inline> {
+            match t {
+                "Space" => Some(Inline::Space),
+                "SoftBreak" => Some(Inline::SoftBreak),
+                "LineBreak" => Some(Inline::LineBreak),
+                _ => None,
+            }
+        }
+        d.deserialize_map(V)
+    }
 }
 
 /// pandoc's `Quoted`, a `Inline`.
@@ -732,11 +1082,23 @@ impl<'de> Deserialize<'de> for TableFoot {
 }
 
 /// pandoc's `QuoteType`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(tag = "t")]
 pub enum QuoteType {
     SingleQuote,
     DoubleQuote,
+}
+
+impl<'de> Deserialize<'de> for QuoteType {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        const TAGS: &[&str] = &["SingleQuote", "DoubleQuote"];
+        let t = crate::de_tag(d, "QuoteType", TAGS)?;
+        Ok(match t.as_str() {
+            "SingleQuote" => QuoteType::SingleQuote,
+            "DoubleQuote" => QuoteType::DoubleQuote,
+            _ => unreachable!(),
+        })
+    }
 }
 
 /// pandoc's `Citation`.
@@ -757,11 +1119,23 @@ pub struct Citation {
 }
 
 /// pandoc's `MathType`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(tag = "t")]
 pub enum MathType {
     DisplayMath,
     InlineMath,
+}
+
+impl<'de> Deserialize<'de> for MathType {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        const TAGS: &[&str] = &["DisplayMath", "InlineMath"];
+        let t = crate::de_tag(d, "MathType", TAGS)?;
+        Ok(match t.as_str() {
+            "DisplayMath" => MathType::DisplayMath,
+            "InlineMath" => MathType::InlineMath,
+            _ => unreachable!(),
+        })
+    }
 }
 
 /// pandoc's `Target`.
@@ -785,7 +1159,7 @@ impl<'de> Deserialize<'de> for Target {
 }
 
 /// pandoc's `ListNumberStyle`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(tag = "t")]
 pub enum ListNumberStyle {
     DefaultStyle,
@@ -797,8 +1171,33 @@ pub enum ListNumberStyle {
     UpperAlpha,
 }
 
+impl<'de> Deserialize<'de> for ListNumberStyle {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        const TAGS: &[&str] = &[
+            "DefaultStyle",
+            "Example",
+            "Decimal",
+            "LowerRoman",
+            "UpperRoman",
+            "LowerAlpha",
+            "UpperAlpha",
+        ];
+        let t = crate::de_tag(d, "ListNumberStyle", TAGS)?;
+        Ok(match t.as_str() {
+            "DefaultStyle" => ListNumberStyle::DefaultStyle,
+            "Example" => ListNumberStyle::Example,
+            "Decimal" => ListNumberStyle::Decimal,
+            "LowerRoman" => ListNumberStyle::LowerRoman,
+            "UpperRoman" => ListNumberStyle::UpperRoman,
+            "LowerAlpha" => ListNumberStyle::LowerAlpha,
+            "UpperAlpha" => ListNumberStyle::UpperAlpha,
+            _ => unreachable!(),
+        })
+    }
+}
+
 /// pandoc's `ListNumberDelim`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(tag = "t")]
 pub enum ListNumberDelim {
     DefaultDelim,
@@ -807,11 +1206,25 @@ pub enum ListNumberDelim {
     TwoParens,
 }
 
+impl<'de> Deserialize<'de> for ListNumberDelim {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        const TAGS: &[&str] = &["DefaultDelim", "Period", "OneParen", "TwoParens"];
+        let t = crate::de_tag(d, "ListNumberDelim", TAGS)?;
+        Ok(match t.as_str() {
+            "DefaultDelim" => ListNumberDelim::DefaultDelim,
+            "Period" => ListNumberDelim::Period,
+            "OneParen" => ListNumberDelim::OneParen,
+            "TwoParens" => ListNumberDelim::TwoParens,
+            _ => unreachable!(),
+        })
+    }
+}
+
 /// pandoc's `ShortCaption`.
 pub type ShortCaption = Vec<Inline>;
 
 /// pandoc's `Alignment`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(tag = "t")]
 pub enum Alignment {
     AlignLeft,
@@ -820,12 +1233,104 @@ pub enum Alignment {
     AlignDefault,
 }
 
+impl<'de> Deserialize<'de> for Alignment {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        const TAGS: &[&str] = &["AlignLeft", "AlignRight", "AlignCenter", "AlignDefault"];
+        let t = crate::de_tag(d, "Alignment", TAGS)?;
+        Ok(match t.as_str() {
+            "AlignLeft" => Alignment::AlignLeft,
+            "AlignRight" => Alignment::AlignRight,
+            "AlignCenter" => Alignment::AlignCenter,
+            "AlignDefault" => Alignment::AlignDefault,
+            _ => unreachable!(),
+        })
+    }
+}
+
 /// pandoc's `ColWidth`.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "t", content = "c")]
 pub enum ColWidth {
     ColWidth(f64),
     ColWidthDefault,
+}
+
+impl<'de> Deserialize<'de> for ColWidth {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        const TAGS: &[&str] = &["ColWidth", "ColWidthDefault"];
+        struct V;
+        impl<'de> de::Visitor<'de> for V {
+            type Value = ColWidth;
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("a ColWidth: {\"t\": ..., \"c\": ...}")
+            }
+            fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<ColWidth, A::Error> {
+                let mut tag: Option<String> = None;
+                let mut value: Option<ColWidth> = None;
+                let mut early: Option<serde_json::Value> = None;
+                while let Some(key) = map.next_key::<String>()? {
+                    if key == "t" {
+                        let t: String = map.next_value()?;
+                        if !TAGS.contains(&t.as_str()) {
+                            return Err(de::Error::unknown_variant(&t, TAGS));
+                        }
+                        value = match early.take() {
+                            Some(c) => Some(from_value(&t, c)?),
+                            None => unit(&t),
+                        };
+                        tag = Some(t);
+                    } else if key == "c" {
+                        match tag.as_deref() {
+                            None => early = Some(map.next_value()?),
+                            Some(t) => {
+                                value = Some(match t {
+                                    "ColWidth" => ColWidth::ColWidth(map.next_value()?),
+                                    "ColWidthDefault" => {
+                                        map.next_value::<de::IgnoredAny>()?;
+                                        ColWidth::ColWidthDefault
+                                    }
+                                    _ => unreachable!(),
+                                })
+                            }
+                        }
+                    } else {
+                        map.next_value::<de::IgnoredAny>()?;
+                    }
+                }
+                match (tag, value) {
+                    (_, Some(v)) => Ok(v),
+                    (None, _) => Err(de::Error::missing_field("t")),
+                    (Some(_), None) => Err(de::Error::missing_field("c")),
+                }
+            }
+        }
+        // "c" before "t" (not pandoc's order): decode it once "t" is known
+        fn from_value<E: de::Error>(t: &str, c: serde_json::Value) -> Result<ColWidth, E> {
+            fn json<T: de::DeserializeOwned, E: de::Error>(c: serde_json::Value) -> Result<T, E> {
+                serde_path_to_error::deserialize(c).map_err(|e| {
+                    let p = e.path().to_string();
+                    let at = match p.as_str() {
+                        "." => "c".to_string(),
+                        p if p.starts_with('[') => format!("c{p}"),
+                        p => format!("c.{p}"),
+                    };
+                    E::custom(format!("{at}: {}", e.inner()))
+                })
+            }
+            Ok(match t {
+                "ColWidth" => ColWidth::ColWidth(json(c)?),
+                "ColWidthDefault" => ColWidth::ColWidthDefault,
+                _ => unreachable!(),
+            })
+        }
+        fn unit(t: &str) -> Option<ColWidth> {
+            match t {
+                "ColWidthDefault" => Some(ColWidth::ColWidthDefault),
+                _ => None,
+            }
+        }
+        d.deserialize_map(V)
+    }
 }
 
 /// pandoc's `Row`.
@@ -861,12 +1366,25 @@ impl<'de> Deserialize<'de> for Row {
 pub type RowHeadColumns = i64;
 
 /// pandoc's `CitationMode`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(tag = "t")]
 pub enum CitationMode {
     AuthorInText,
     SuppressAuthor,
     NormalCitation,
+}
+
+impl<'de> Deserialize<'de> for CitationMode {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        const TAGS: &[&str] = &["AuthorInText", "SuppressAuthor", "NormalCitation"];
+        let t = crate::de_tag(d, "CitationMode", TAGS)?;
+        Ok(match t.as_str() {
+            "AuthorInText" => CitationMode::AuthorInText,
+            "SuppressAuthor" => CitationMode::SuppressAuthor,
+            "NormalCitation" => CitationMode::NormalCitation,
+            _ => unreachable!(),
+        })
+    }
 }
 
 /// pandoc's `Cell`.
