@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Read pins
-        run: cat pins.env >> "$GITHUB_ENV"
+        run: grep -v "^#" pins.env >> "$GITHUB_ENV"
       - uses: haskell-actions/setup@v2.12.1
         with:
           ghc-version: ${{ env.GHC_VERSION }}
