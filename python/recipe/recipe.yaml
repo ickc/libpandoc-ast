@@ -1,0 +1,49 @@
+# The Python package for conda: pure Python, one package for every platform.
+#
+#   rattler-build build -r python/recipe -c conda-forge
+context:
+  version: "0.1.0"
+
+package:
+  name: libpandoc-ast
+  version: ${{ version }}
+
+source:
+  path: ../..
+
+build:
+  number: 0
+  noarch: python
+  script: python -m pip install ./python -vv --no-deps --no-build-isolation
+
+requirements:
+  host:
+    - python ${{ python_min }}.*
+    - pip
+    - setuptools >=77
+  run:
+    - python >=${{ python_min }}
+
+tests:
+  - python:
+      imports:
+        - libpandoc_ast
+      python_version: ${{ python_min }}.*
+  - files:
+      source:
+        - python/tests/
+        - corpus/
+    requirements:
+      run:
+        - python ${{ python_min }}.*
+        - pytest
+        - pandoc
+    script:
+      - pytest -v python/tests
+
+about:
+  homepage: https://github.com/ickc/libpandoc-ast
+  repository: https://github.com/ickc/libpandoc-ast
+  license: BSD-3-Clause
+  license_file: LICENSE
+  summary: pandoc's document AST, generated from pandoc-types, with checks and filters
