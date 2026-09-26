@@ -99,7 +99,7 @@ the way the document was read, and returns its blocks:
 ```python
 @f.on(CodeBlock)
 def cell(code, ctx):
-    if "cell" in code.classes:
+    if "cell" in code.attr.classes:
         return ctx.read(code.text)
 ```
 
