@@ -232,6 +232,50 @@ function Base.copy(x::T) where {T <: Node}
     T((getfield(x, f) for f in fieldnames(T))...)
 end
 
+# -- strings, as pandoc's Lua converts them ---------------------------------------
+
+"""
+    inlines(text)
+
+A string's words and spaces, as pandoc's Lua `pandoc.Inlines` (and
+pandoc-types' `text`): `Str` for each run of non-spaces, and for each run of
+spaces `SoftBreak` if it has a newline, else `Space`. Constructors and fields
+convert a string this way themselves (`Para("hello world")`).
+"""
+function inlines(text::AbstractString)
+    out = Inline[]
+    for m in eachmatch(r"[ \t\n\r]+|[^ \t\n\r]+", text)
+        run = m.match
+        if run[1] in (' ', '\t', '\n', '\r')
+            push!(out, occursin(r"[\n\r]", run) ? SoftBreak() : Space())
+        else
+            push!(out, Str(String(run)))
+        end
+    end
+    out
+end
+
+"""
+    blocks(text)
+
+A string as blocks, as pandoc's Lua `pandoc.Blocks`: one `Plain` of its words
+and spaces. (To parse markup, use libpandoc.)
+"""
+blocks(text::AbstractString) = Block[Plain(inlines(text))]
+
+# where one inline goes, a Str; where one block goes, Plain text; where a list
+# goes, inlines(s) or blocks(s)
+Base.convert(::Type{Inline}, s::AbstractString) = Str(String(s))
+Base.convert(::Type{Block}, s::AbstractString) = Plain(inlines(s))
+Base.convert(::Type{Vector{Inline}}, s::AbstractString) = inlines(s)
+Base.convert(::Type{Vector{Block}}, s::AbstractString) = blocks(s)
+
+# A constructor's variadic arguments: one string is the whole list, as in
+# pandoc's Lua (Para("hello world")); several are each a node.
+_variadic(::Type{T}, xs) where {T} = collect(T, xs)
+_variadic(::Type{Inline}, xs::Tuple{AbstractString}) = inlines(xs[1])
+_variadic(::Type{Block}, xs::Tuple{AbstractString}) = blocks(xs[1])
+
 # A product field given whole (attr = ...) or by its parts (identifier = ...).
 function _flat(::Type{P}, given, owner::Symbol, field::Symbol; parts...) where {P}
     names = fieldnames(P)

@@ -15,7 +15,7 @@ export { ASTDecodeError, ASTError, ASTTypeError, check, formatPath, fromJSON, to
 export type { Path } from "./core.ts";
 export { applyFilter, Context, walk } from "./walk.ts";
 export type { Filter, Result } from "./walk.ts";
-export { fromPlain, stringify, toPlain } from "./util.ts";
+export { blocks, fromPlain, inlines, stringify, toPlain } from "./util.ts";
 
 /** A document from pandoc's JSON text, checked. */
 export function parse(text: string): Pandoc {

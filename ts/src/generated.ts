@@ -379,6 +379,14 @@ export type RowSpan = number;
 
 export type ColSpan = number;
 
+/** Inlines as constructors take them: a string is its words and spaces,
+ * and a string in the list a Str, as in pandoc's Lua. */
+export type Inlines = (Inline | string)[] | string;
+
+/** Blocks as constructors take them: a string is Plain text, as in
+ * pandoc's Lua. */
+export type Blocks = (Block | string)[] | string;
+
 /** Every constructor and product, by name. */
 export interface Nodes {
   Pandoc: Pandoc;
@@ -449,22 +457,22 @@ export interface Sums {
 export const SCHEMA: Schema = {"pandoc-api-version":[1,23,1,2],"root":"Pandoc","types":[{"name":"Pandoc","kind":"product","encoding":"root","fields":[{"name":"meta","type":{"ref":"Meta"},"key":"meta","default":{}},{"name":"blocks","type":{"list":{"ref":"Block"}},"key":"blocks","default":[]}],"variadic":"blocks"},{"name":"Meta","kind":"alias","type":{"map":[{"prim":"string"},{"ref":"MetaValue"}]}},{"name":"Block","kind":"sum","constructors":[{"name":"Plain","encoding":"value","fields":[{"name":"content","type":{"list":{"ref":"Inline"}},"default":[],"key":"content"}],"variadic":"content"},{"name":"Para","encoding":"value","fields":[{"name":"content","type":{"list":{"ref":"Inline"}},"default":[],"key":"content"}],"variadic":"content"},{"name":"LineBlock","encoding":"value","fields":[{"name":"content","type":{"list":{"list":{"ref":"Inline"}}},"default":[],"key":"content"}],"variadic":"content"},{"name":"CodeBlock","encoding":"array","fields":[{"name":"attr","type":{"ref":"Attr"},"default":["",[],[]],"flatten":true,"key":"attr"},{"name":"text","type":{"prim":"string"},"key":"text"}]},{"name":"RawBlock","encoding":"array","fields":[{"name":"format","type":{"ref":"Format"},"key":"format"},{"name":"text","type":{"prim":"string"},"key":"text"}]},{"name":"BlockQuote","encoding":"value","fields":[{"name":"content","type":{"list":{"ref":"Block"}},"default":[],"key":"content"}],"variadic":"content"},{"name":"OrderedList","encoding":"array","fields":[{"name":"listAttributes","type":{"ref":"ListAttributes"},"default":[1,{"t":"DefaultStyle"},{"t":"DefaultDelim"}],"flatten":true,"key":"list_attributes"},{"name":"content","type":{"list":{"list":{"ref":"Block"}}},"default":[],"key":"content"}],"variadic":"content"},{"name":"BulletList","encoding":"value","fields":[{"name":"content","type":{"list":{"list":{"ref":"Block"}}},"default":[],"key":"content"}],"variadic":"content"},{"name":"DefinitionList","encoding":"value","fields":[{"name":"content","type":{"list":{"tuple":[{"list":{"ref":"Inline"}},{"list":{"list":{"ref":"Block"}}}]}},"default":[],"key":"content"}],"variadic":"content"},{"name":"Header","encoding":"array","fields":[{"name":"level","type":{"prim":"int"},"key":"level"},{"name":"attr","type":{"ref":"Attr"},"default":["",[],[]],"flatten":true,"key":"attr"},{"name":"content","type":{"list":{"ref":"Inline"}},"default":[],"key":"content"}],"variadic":"content"},{"name":"HorizontalRule","encoding":"none","fields":[]},{"name":"Table","encoding":"array","fields":[{"name":"attr","type":{"ref":"Attr"},"default":["",[],[]],"flatten":true,"key":"attr"},{"name":"caption","type":{"ref":"Caption"},"default":[null,[]],"key":"caption"},{"name":"colSpecs","type":{"list":{"ref":"ColSpec"}},"default":[],"key":"col_specs"},{"name":"head","type":{"ref":"TableHead"},"default":[["",[],[]],[]],"key":"head"},{"name":"bodies","type":{"list":{"ref":"TableBody"}},"default":[],"key":"bodies"},{"name":"foot","type":{"ref":"TableFoot"},"default":[["",[],[]],[]],"key":"foot"}]},{"name":"Figure","encoding":"array","fields":[{"name":"attr","type":{"ref":"Attr"},"default":["",[],[]],"flatten":true,"key":"attr"},{"name":"caption","type":{"ref":"Caption"},"default":[null,[]],"key":"caption"},{"name":"content","type":{"list":{"ref":"Block"}},"default":[],"key":"content"}],"variadic":"content"},{"name":"Div","encoding":"array","fields":[{"name":"attr","type":{"ref":"Attr"},"default":["",[],[]],"flatten":true,"key":"attr"},{"name":"content","type":{"list":{"ref":"Block"}},"default":[],"key":"content"}],"variadic":"content"}]},{"name":"MetaValue","kind":"sum","constructors":[{"name":"MetaMap","encoding":"value","fields":[{"name":"content","type":{"map":[{"prim":"string"},{"ref":"MetaValue"}]},"default":{},"key":"content"}]},{"name":"MetaList","encoding":"value","fields":[{"name":"content","type":{"list":{"ref":"MetaValue"}},"default":[],"key":"content"}],"variadic":"content"},{"name":"MetaBool","encoding":"value","fields":[{"name":"value","type":{"prim":"bool"},"key":"value"}]},{"name":"MetaString","encoding":"value","fields":[{"name":"text","type":{"prim":"string"},"key":"text"}]},{"name":"MetaInlines","encoding":"value","fields":[{"name":"content","type":{"list":{"ref":"Inline"}},"default":[],"key":"content"}],"variadic":"content"},{"name":"MetaBlocks","encoding":"value","fields":[{"name":"content","type":{"list":{"ref":"Block"}},"default":[],"key":"content"}],"variadic":"content"}]},{"name":"Inline","kind":"sum","constructors":[{"name":"Str","encoding":"value","fields":[{"name":"text","type":{"prim":"string"},"key":"text"}]},{"name":"Emph","encoding":"value","fields":[{"name":"content","type":{"list":{"ref":"Inline"}},"default":[],"key":"content"}],"variadic":"content"},{"name":"Underline","encoding":"value","fields":[{"name":"content","type":{"list":{"ref":"Inline"}},"default":[],"key":"content"}],"variadic":"content"},{"name":"Strong","encoding":"value","fields":[{"name":"content","type":{"list":{"ref":"Inline"}},"default":[],"key":"content"}],"variadic":"content"},{"name":"Strikeout","encoding":"value","fields":[{"name":"content","type":{"list":{"ref":"Inline"}},"default":[],"key":"content"}],"variadic":"content"},{"name":"Superscript","encoding":"value","fields":[{"name":"content","type":{"list":{"ref":"Inline"}},"default":[],"key":"content"}],"variadic":"content"},{"name":"Subscript","encoding":"value","fields":[{"name":"content","type":{"list":{"ref":"Inline"}},"default":[],"key":"content"}],"variadic":"content"},{"name":"SmallCaps","encoding":"value","fields":[{"name":"content","type":{"list":{"ref":"Inline"}},"default":[],"key":"content"}],"variadic":"content"},{"name":"Quoted","encoding":"array","fields":[{"name":"quoteType","type":{"ref":"QuoteType"},"key":"quote_type"},{"name":"content","type":{"list":{"ref":"Inline"}},"default":[],"key":"content"}],"variadic":"content"},{"name":"Cite","encoding":"array","fields":[{"name":"citations","type":{"list":{"ref":"Citation"}},"default":[],"key":"citations"},{"name":"content","type":{"list":{"ref":"Inline"}},"default":[],"key":"content"}]},{"name":"Code","encoding":"array","fields":[{"name":"attr","type":{"ref":"Attr"},"default":["",[],[]],"flatten":true,"key":"attr"},{"name":"text","type":{"prim":"string"},"key":"text"}]},{"name":"Space","encoding":"none","fields":[]},{"name":"SoftBreak","encoding":"none","fields":[]},{"name":"LineBreak","encoding":"none","fields":[]},{"name":"Math","encoding":"array","fields":[{"name":"mathType","type":{"ref":"MathType"},"key":"math_type"},{"name":"text","type":{"prim":"string"},"key":"text"}]},{"name":"RawInline","encoding":"array","fields":[{"name":"format","type":{"ref":"Format"},"key":"format"},{"name":"text","type":{"prim":"string"},"key":"text"}]},{"name":"Link","encoding":"array","fields":[{"name":"attr","type":{"ref":"Attr"},"default":["",[],[]],"flatten":true,"key":"attr"},{"name":"content","type":{"list":{"ref":"Inline"}},"default":[],"key":"content"},{"name":"target","type":{"ref":"Target"},"flatten":true,"key":"target"}],"variadic":"content"},{"name":"Image","encoding":"array","fields":[{"name":"attr","type":{"ref":"Attr"},"default":["",[],[]],"flatten":true,"key":"attr"},{"name":"content","type":{"list":{"ref":"Inline"}},"default":[],"key":"content"},{"name":"target","type":{"ref":"Target"},"flatten":true,"key":"target"}],"variadic":"content"},{"name":"Note","encoding":"value","fields":[{"name":"content","type":{"list":{"ref":"Block"}},"default":[],"key":"content"}],"variadic":"content"},{"name":"Span","encoding":"array","fields":[{"name":"attr","type":{"ref":"Attr"},"default":["",[],[]],"flatten":true,"key":"attr"},{"name":"content","type":{"list":{"ref":"Inline"}},"default":[],"key":"content"}],"variadic":"content"}]},{"name":"Attr","kind":"product","encoding":"array","fields":[{"name":"identifier","type":{"prim":"string"},"default":"","key":"identifier"},{"name":"classes","type":{"list":{"prim":"string"}},"default":[],"key":"classes"},{"name":"attributes","type":{"list":{"tuple":[{"prim":"string"},{"prim":"string"}]}},"default":[],"key":"attributes"}]},{"name":"Format","kind":"alias","type":{"prim":"string"}},{"name":"ListAttributes","kind":"product","encoding":"array","fields":[{"name":"start","type":{"prim":"int"},"default":1,"key":"start"},{"name":"style","type":{"ref":"ListNumberStyle"},"default":{"t":"DefaultStyle"},"key":"style"},{"name":"delimiter","type":{"ref":"ListNumberDelim"},"default":{"t":"DefaultDelim"},"key":"delimiter"}]},{"name":"Caption","kind":"product","encoding":"array","fields":[{"name":"short","type":{"maybe":{"ref":"ShortCaption"}},"default":null,"key":"short"},{"name":"content","type":{"list":{"ref":"Block"}},"default":[],"key":"content"}],"variadic":"content"},{"name":"ColSpec","kind":"product","encoding":"array","fields":[{"name":"alignment","type":{"ref":"Alignment"},"default":{"t":"AlignDefault"},"key":"alignment"},{"name":"width","type":{"ref":"ColWidth"},"default":{"t":"ColWidthDefault"},"key":"width"}]},{"name":"TableHead","kind":"product","encoding":"array","fields":[{"name":"attr","type":{"ref":"Attr"},"default":["",[],[]],"flatten":true,"key":"attr"},{"name":"rows","type":{"list":{"ref":"Row"}},"default":[],"key":"rows"}],"variadic":"rows"},{"name":"TableBody","kind":"product","encoding":"array","fields":[{"name":"attr","type":{"ref":"Attr"},"default":["",[],[]],"flatten":true,"key":"attr"},{"name":"rowHeadColumns","type":{"ref":"RowHeadColumns"},"default":0,"key":"row_head_columns"},{"name":"head","type":{"list":{"ref":"Row"}},"default":[],"key":"head"},{"name":"body","type":{"list":{"ref":"Row"}},"default":[],"key":"body"}]},{"name":"TableFoot","kind":"product","encoding":"array","fields":[{"name":"attr","type":{"ref":"Attr"},"default":["",[],[]],"flatten":true,"key":"attr"},{"name":"rows","type":{"list":{"ref":"Row"}},"default":[],"key":"rows"}],"variadic":"rows"},{"name":"QuoteType","kind":"enum","values":["SingleQuote","DoubleQuote"]},{"name":"Citation","kind":"product","encoding":"object","fields":[{"name":"id","type":{"prim":"string"},"key":"citationId"},{"name":"prefix","type":{"list":{"ref":"Inline"}},"key":"citationPrefix","default":[]},{"name":"suffix","type":{"list":{"ref":"Inline"}},"key":"citationSuffix","default":[]},{"name":"mode","type":{"ref":"CitationMode"},"key":"citationMode","default":{"t":"NormalCitation"}},{"name":"noteNum","type":{"prim":"int"},"key":"citationNoteNum","default":0},{"name":"hash","type":{"prim":"int"},"key":"citationHash","default":0}]},{"name":"MathType","kind":"enum","values":["DisplayMath","InlineMath"]},{"name":"Target","kind":"product","encoding":"array","fields":[{"name":"url","type":{"prim":"string"},"key":"url"},{"name":"title","type":{"prim":"string"},"default":"","key":"title"}]},{"name":"ListNumberStyle","kind":"enum","values":["DefaultStyle","Example","Decimal","LowerRoman","UpperRoman","LowerAlpha","UpperAlpha"]},{"name":"ListNumberDelim","kind":"enum","values":["DefaultDelim","Period","OneParen","TwoParens"]},{"name":"ShortCaption","kind":"alias","type":{"list":{"ref":"Inline"}}},{"name":"Alignment","kind":"enum","values":["AlignLeft","AlignRight","AlignCenter","AlignDefault"]},{"name":"ColWidth","kind":"sum","constructors":[{"name":"ColWidth","encoding":"value","fields":[{"name":"width","type":{"prim":"double"},"key":"width"}]},{"name":"ColWidthDefault","encoding":"none","fields":[]}]},{"name":"Row","kind":"product","encoding":"array","fields":[{"name":"attr","type":{"ref":"Attr"},"default":["",[],[]],"flatten":true,"key":"attr"},{"name":"cells","type":{"list":{"ref":"Cell"}},"default":[],"key":"cells"}],"variadic":"cells"},{"name":"RowHeadColumns","kind":"alias","type":{"prim":"int"}},{"name":"CitationMode","kind":"enum","values":["AuthorInText","SuppressAuthor","NormalCitation"]},{"name":"Cell","kind":"product","encoding":"array","fields":[{"name":"attr","type":{"ref":"Attr"},"default":["",[],[]],"flatten":true,"key":"attr"},{"name":"alignment","type":{"ref":"Alignment"},"default":{"t":"AlignDefault"},"key":"alignment"},{"name":"rowSpan","type":{"ref":"RowSpan"},"default":1,"key":"row_span"},{"name":"colSpan","type":{"ref":"ColSpan"},"default":1,"key":"col_span"},{"name":"content","type":{"list":{"ref":"Block"}},"default":[],"key":"content"}],"variadic":"content"},{"name":"RowSpan","kind":"alias","type":{"prim":"int"}},{"name":"ColSpan","kind":"alias","type":{"prim":"int"}}]};
 
 /** pandoc's `Pandoc`. */
-export function Pandoc(blocks?: Block[], opts: { meta?: Meta } = {}): Pandoc {
+export function Pandoc(blocks?: Blocks, opts: { meta?: Meta } = {}): Pandoc {
   return make<Pandoc>("Pandoc", { blocks }, opts);
 }
 
 /** pandoc's `Plain`. */
-export function Plain(content?: Inline[]): Plain {
+export function Plain(content?: Inlines): Plain {
   return make<Plain>("Plain", { content }, {});
 }
 
 /** pandoc's `Para`. */
-export function Para(content?: Inline[]): Para {
+export function Para(content?: Inlines): Para {
   return make<Para>("Para", { content }, {});
 }
 
 /** pandoc's `LineBlock`. */
-export function LineBlock(content?: Inline[][]): LineBlock {
+export function LineBlock(content?: Inlines[]): LineBlock {
   return make<LineBlock>("LineBlock", { content }, {});
 }
 
@@ -479,27 +487,27 @@ export function RawBlock(format: Format, text: string): RawBlock {
 }
 
 /** pandoc's `BlockQuote`. */
-export function BlockQuote(content?: Block[]): BlockQuote {
+export function BlockQuote(content?: Blocks): BlockQuote {
   return make<BlockQuote>("BlockQuote", { content }, {});
 }
 
 /** pandoc's `OrderedList`. */
-export function OrderedList(content?: Block[][], opts: { listAttributes?: ListAttributes; start?: number; style?: ListNumberStyle; delimiter?: ListNumberDelim } = {}): OrderedList {
+export function OrderedList(content?: Blocks[], opts: { listAttributes?: ListAttributes; start?: number; style?: ListNumberStyle; delimiter?: ListNumberDelim } = {}): OrderedList {
   return make<OrderedList>("OrderedList", { content }, opts);
 }
 
 /** pandoc's `BulletList`. */
-export function BulletList(content?: Block[][]): BulletList {
+export function BulletList(content?: Blocks[]): BulletList {
   return make<BulletList>("BulletList", { content }, {});
 }
 
 /** pandoc's `DefinitionList`. */
-export function DefinitionList(content?: [Inline[], Block[][]][]): DefinitionList {
+export function DefinitionList(content?: [Inlines, Blocks[]][]): DefinitionList {
   return make<DefinitionList>("DefinitionList", { content }, {});
 }
 
 /** pandoc's `Header`. */
-export function Header(level: number, content?: Inline[], opts: { attr?: Attr; identifier?: string; classes?: string[]; attributes?: [string, string][] | Record<string, string> } = {}): Header {
+export function Header(level: number, content?: Inlines, opts: { attr?: Attr; identifier?: string; classes?: string[]; attributes?: [string, string][] | Record<string, string> } = {}): Header {
   return make<Header>("Header", { level, content }, opts);
 }
 
@@ -514,12 +522,12 @@ export function Table(opts: { attr?: Attr; identifier?: string; classes?: string
 }
 
 /** pandoc's `Figure`. */
-export function Figure(content?: Block[], opts: { attr?: Attr; identifier?: string; classes?: string[]; attributes?: [string, string][] | Record<string, string>; caption?: Caption } = {}): Figure {
+export function Figure(content?: Blocks, opts: { attr?: Attr; identifier?: string; classes?: string[]; attributes?: [string, string][] | Record<string, string>; caption?: Caption } = {}): Figure {
   return make<Figure>("Figure", { content }, opts);
 }
 
 /** pandoc's `Div`. */
-export function Div(content?: Block[], opts: { attr?: Attr; identifier?: string; classes?: string[]; attributes?: [string, string][] | Record<string, string> } = {}): Div {
+export function Div(content?: Blocks, opts: { attr?: Attr; identifier?: string; classes?: string[]; attributes?: [string, string][] | Record<string, string> } = {}): Div {
   return make<Div>("Div", { content }, opts);
 }
 
@@ -544,12 +552,12 @@ export function MetaString(text: string): MetaString {
 }
 
 /** pandoc's `MetaInlines`. */
-export function MetaInlines(content?: Inline[]): MetaInlines {
+export function MetaInlines(content?: Inlines): MetaInlines {
   return make<MetaInlines>("MetaInlines", { content }, {});
 }
 
 /** pandoc's `MetaBlocks`. */
-export function MetaBlocks(content?: Block[]): MetaBlocks {
+export function MetaBlocks(content?: Blocks): MetaBlocks {
   return make<MetaBlocks>("MetaBlocks", { content }, {});
 }
 
@@ -559,47 +567,47 @@ export function Str(text: string): Str {
 }
 
 /** pandoc's `Emph`. */
-export function Emph(content?: Inline[]): Emph {
+export function Emph(content?: Inlines): Emph {
   return make<Emph>("Emph", { content }, {});
 }
 
 /** pandoc's `Underline`. */
-export function Underline(content?: Inline[]): Underline {
+export function Underline(content?: Inlines): Underline {
   return make<Underline>("Underline", { content }, {});
 }
 
 /** pandoc's `Strong`. */
-export function Strong(content?: Inline[]): Strong {
+export function Strong(content?: Inlines): Strong {
   return make<Strong>("Strong", { content }, {});
 }
 
 /** pandoc's `Strikeout`. */
-export function Strikeout(content?: Inline[]): Strikeout {
+export function Strikeout(content?: Inlines): Strikeout {
   return make<Strikeout>("Strikeout", { content }, {});
 }
 
 /** pandoc's `Superscript`. */
-export function Superscript(content?: Inline[]): Superscript {
+export function Superscript(content?: Inlines): Superscript {
   return make<Superscript>("Superscript", { content }, {});
 }
 
 /** pandoc's `Subscript`. */
-export function Subscript(content?: Inline[]): Subscript {
+export function Subscript(content?: Inlines): Subscript {
   return make<Subscript>("Subscript", { content }, {});
 }
 
 /** pandoc's `SmallCaps`. */
-export function SmallCaps(content?: Inline[]): SmallCaps {
+export function SmallCaps(content?: Inlines): SmallCaps {
   return make<SmallCaps>("SmallCaps", { content }, {});
 }
 
 /** pandoc's `Quoted`. */
-export function Quoted(quoteType: QuoteType, content?: Inline[]): Quoted {
+export function Quoted(quoteType: QuoteType, content?: Inlines): Quoted {
   return make<Quoted>("Quoted", { quoteType, content }, {});
 }
 
 /** pandoc's `Cite`. */
-export function Cite(opts: { citations?: Citation[]; content?: Inline[] } = {}): Cite {
+export function Cite(opts: { citations?: Citation[]; content?: Inlines } = {}): Cite {
   return make<Cite>("Cite", {  }, opts);
 }
 
@@ -634,22 +642,22 @@ export function RawInline(format: Format, text: string): RawInline {
 }
 
 /** pandoc's `Link`. */
-export function Link(content?: Inline[], opts: { attr?: Attr; identifier?: string; classes?: string[]; attributes?: [string, string][] | Record<string, string>; target?: Target; url?: string; title?: string } = {}): Link {
+export function Link(content?: Inlines, opts: { attr?: Attr; identifier?: string; classes?: string[]; attributes?: [string, string][] | Record<string, string>; target?: Target; url?: string; title?: string } = {}): Link {
   return make<Link>("Link", { content }, opts);
 }
 
 /** pandoc's `Image`. */
-export function Image(content?: Inline[], opts: { attr?: Attr; identifier?: string; classes?: string[]; attributes?: [string, string][] | Record<string, string>; target?: Target; url?: string; title?: string } = {}): Image {
+export function Image(content?: Inlines, opts: { attr?: Attr; identifier?: string; classes?: string[]; attributes?: [string, string][] | Record<string, string>; target?: Target; url?: string; title?: string } = {}): Image {
   return make<Image>("Image", { content }, opts);
 }
 
 /** pandoc's `Note`. */
-export function Note(content?: Block[]): Note {
+export function Note(content?: Blocks): Note {
   return make<Note>("Note", { content }, {});
 }
 
 /** pandoc's `Span`. */
-export function Span(content?: Inline[], opts: { attr?: Attr; identifier?: string; classes?: string[]; attributes?: [string, string][] | Record<string, string> } = {}): Span {
+export function Span(content?: Inlines, opts: { attr?: Attr; identifier?: string; classes?: string[]; attributes?: [string, string][] | Record<string, string> } = {}): Span {
   return make<Span>("Span", { content }, opts);
 }
 
@@ -664,7 +672,7 @@ export function ListAttributes(start?: number, style?: ListNumberStyle, delimite
 }
 
 /** pandoc's `Caption`. */
-export function Caption(content?: Block[], opts: { short?: ShortCaption | null } = {}): Caption {
+export function Caption(content?: Blocks, opts: { short?: ShortCaption | null } = {}): Caption {
   return make<Caption>("Caption", { content }, opts);
 }
 
@@ -689,7 +697,7 @@ export function TableFoot(rows?: Row[], opts: { attr?: Attr; identifier?: string
 }
 
 /** pandoc's `Citation`. */
-export function Citation(id: string, opts: { prefix?: Inline[]; suffix?: Inline[]; mode?: CitationMode; noteNum?: number; hash?: number } = {}): Citation {
+export function Citation(id: string, opts: { prefix?: Inlines; suffix?: Inlines; mode?: CitationMode; noteNum?: number; hash?: number } = {}): Citation {
   return make<Citation>("Citation", { id }, opts);
 }
 
@@ -714,7 +722,7 @@ export function Row(cells?: Cell[], opts: { attr?: Attr; identifier?: string; cl
 }
 
 /** pandoc's `Cell`. */
-export function Cell(content?: Block[], opts: { attr?: Attr; identifier?: string; classes?: string[]; attributes?: [string, string][] | Record<string, string>; alignment?: Alignment; rowSpan?: RowSpan; colSpan?: ColSpan } = {}): Cell {
+export function Cell(content?: Blocks, opts: { attr?: Attr; identifier?: string; classes?: string[]; attributes?: [string, string][] | Record<string, string>; alignment?: Alignment; rowSpan?: RowSpan; colSpan?: ColSpan } = {}): Cell {
   return make<Cell>("Cell", { content }, opts);
 }
 

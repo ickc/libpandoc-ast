@@ -1,7 +1,24 @@
 /** Helpers: the text of nodes, and metadata to and from plain values. */
 
 import { walk } from "./walk.ts";
-import type { MetaValue } from "./generated.ts";
+import { textInlines } from "./core.ts";
+import type { Block, Inline, MetaValue } from "./generated.ts";
+
+/**
+ * A string's words and spaces, as pandoc's Lua `pandoc.Inlines`: `Str` for
+ * each word, `Space` between, `SoftBreak` for a newline. Constructors
+ * convert a string this way themselves (`Para("hello world")`); this is
+ * for building lists.
+ */
+export function inlines(text: string): Inline[] {
+  return textInlines(text) as Inline[];
+}
+
+/** A string as blocks, as pandoc's Lua `pandoc.Blocks`: one `Plain` of its
+ * words and spaces. (To parse markup, use libpandoc.) */
+export function blocks(text: string): Block[] {
+  return [{ t: "Plain", content: inlines(text) }];
+}
 
 const QUOTES: Record<string, [string, string]> = {
   SingleQuote: ["‘", "’"],

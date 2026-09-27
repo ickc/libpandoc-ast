@@ -33,6 +33,9 @@ fn main() {
 - `VisitMut` has a method per type, and `visit_blocks`/`visit_inlines` for
   whole lists (to splice or remove). Each default visits the children
   through the `walk_*` function of the same name.
+- Strings convert as in pandoc's Lua: `inlines("hello world")` is its words
+  and spaces, `blocks("...")` `Plain` text, and `"x".into()` is a `Str`
+  where one inline goes, `Plain` text where one block goes.
 - `from_str`/`to_string` for documents; `from_str` checks the
   `pandoc-api-version` and reports the path of JSON it can't read.
 

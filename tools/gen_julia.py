@@ -222,10 +222,20 @@ class Gen:
             r = self.resolve(f["type"])
             if f["name"] == variadic:
                 item = self.resolve(r["list"])
-                # a list of lists: any vectors, converted ([Plain(...)] is a Vector{Plain})
-                star_t = "AbstractVector" if "list" in item else self.jl(r["list"])
+                # a list of lists: any vectors, converted ([Plain(...)] is a Vector{Plain});
+                # inlines and blocks: also strings, as pandoc's Lua converts them
+                if "list" in item:
+                    inner = self.resolve(item["list"])
+                    if inner.get("ref") in ("Inline", "Block"):
+                        star_t = "Union{AbstractVector, AbstractString}"
+                    else:
+                        star_t = "AbstractVector"
+                elif item.get("ref") in ("Inline", "Block"):
+                    star_t = f"Union{{{item['ref']}, AbstractString}}"
+                else:
+                    star_t = self.jl(r["list"])
                 star = f"{n}::{star_t}..."
-                args.append(f"collect({self.jl(r['list'])}, {n})")
+                args.append(f"_variadic({self.jl(r['list'])}, {n})")
             elif f.get("flatten"):
                 prod = self.types[f["type"]["ref"]]
                 parts = []

@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  applyFilter, ASTTypeError, Attr, BulletList, Cell, Code, Div, Emph, Header, Link, Math, Note,
-  OrderedList, Pandoc, Para, Plain, Quoted, Space, Str, Table, fromPlain, parse, serialize,
-  stringify, toPlain,
+  applyFilter, ASTTypeError, Attr, blocks, BulletList, Cell, Cite, Code, DefinitionList, Div, Emph,
+  Header, inlines, LineBlock, Link, Math, Note, OrderedList, Pandoc, Para, Plain, Quoted, SoftBreak,
+  Space, Str, Table, fromPlain, parse, serialize, stringify, toPlain,
 } from "../src/index.ts";
 import type { Filter, Inline } from "../src/index.ts";
 
@@ -21,10 +21,30 @@ test("constructors fill defaults and flatten attributes", () => {
   assert.deepEqual(Link([Str("x")], { url: "u" }).target, { url: "u", title: "" });
 });
 
+test("strings convert as in pandoc's Lua", () => {
+  const hw = [Str("hello"), Space(), Str("world")];
+  assert.deepEqual(Para("hello world"), Para(hw));
+  assert.deepEqual(Header(1, "a\nb").content, [Str("a"), SoftBreak(), Str("b")]);
+  // one inline: a Str, whole
+  assert.deepEqual(Para(["hello world", Emph("x")]).content, [Str("hello world"), Emph([Str("x")])]);
+  // blocks: Plain text
+  assert.deepEqual(Div("hello world").content, [Plain(hw)]);
+  assert.deepEqual(Div(["a b", Para("c")]).content, [Plain([Str("a"), Space(), Str("b")]), Para([Str("c")])]);
+  assert.deepEqual(Pandoc("x").blocks, [Plain([Str("x")])]);
+  // nested
+  assert.deepEqual(LineBlock(["a b", [Str("c")]]).content, [[Str("a"), Space(), Str("b")], [Str("c")]]);
+  assert.deepEqual(DefinitionList([["term", ["def"]]]).content, [[[Str("term")], [[Plain([Str("def")])]]]]);
+  assert.deepEqual(inlines(" a  b\n"), [Space(), Str("a"), Space(), Str("b"), SoftBreak()]);
+  assert.deepEqual(blocks("a"), [Plain([Str("a")])]);
+  // a list without strings is kept as given
+  const given = [Str("x")];
+  assert.equal(Para(given).content, given);
+});
+
 test("constructors check their arguments, and say where", () => {
   const cases: [() => unknown, RegExp][] = [
     [() => Para([Para() as unknown as Inline]), /^Para\.content\[0\]: expected Inline, got Para \(a Block\)$/],
-    [() => Header(1, "Hi" as unknown as Inline[]), /Header\.content: expected a list, got "Hi" \(a string; give a list of nodes\)/],
+    [() => Cite({ citations: "x" as never }), /Cite\.citations: expected a list, got "x" \(a string; give a list of nodes\)/],
     [() => Math("Bogus" as "InlineMath", "x"), /Math\.mathType: expected a MathType, got "Bogus"/],
     [() => BulletList([[Str("x") as never]]), /BulletList\.content\[0\]\[0\]: expected Block, got Str \(an Inline\)/],
     [() => Header(1.5, []), /Header\.level: expected an integer, got 1\.5/],

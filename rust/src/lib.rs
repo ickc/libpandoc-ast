@@ -98,6 +98,68 @@ pub fn de_tag<'de, D: serde::Deserializer<'de>>(
     d.deserialize_map(V(name, tags))
 }
 
+/// A string's words and spaces, as pandoc's Lua `pandoc.Inlines` (and
+/// pandoc-types' `text`): `Str` for each run of non-spaces, and for each run
+/// of spaces `SoftBreak` if it has a newline, else `Space`.
+///
+/// ```
+/// use pandom::{inlines, Block, Inline};
+///
+/// let p = Block::Para(inlines("hello world"));
+/// assert_eq!(p, Block::Para(vec!["hello".into(), Inline::Space, "world".into()]));
+/// ```
+pub fn inlines(text: &str) -> Vec<Inline> {
+    let is_space = |c: char| matches!(c, ' ' | '\t' | '\n' | '\r');
+    let mut out = Vec::new();
+    let mut rest = text;
+    while let Some(c) = rest.chars().next() {
+        let space = is_space(c);
+        let end = rest.find(|c| is_space(c) != space).unwrap_or(rest.len());
+        let (run, tail) = rest.split_at(end);
+        out.push(if !space {
+            Inline::Str(run.to_owned())
+        } else if run.contains(['\n', '\r']) {
+            Inline::SoftBreak
+        } else {
+            Inline::Space
+        });
+        rest = tail;
+    }
+    out
+}
+
+/// A string as blocks, as pandoc's Lua `pandoc.Blocks`: one `Plain` of its
+/// words and spaces. (To parse markup, use libpandoc.)
+pub fn blocks(text: &str) -> Vec<Block> {
+    vec![Block::Plain(inlines(text))]
+}
+
+/// A string where one inline goes is a `Str`, as in pandoc's Lua.
+impl From<&str> for Inline {
+    fn from(s: &str) -> Self {
+        Inline::Str(s.to_owned())
+    }
+}
+
+impl From<String> for Inline {
+    fn from(s: String) -> Self {
+        Inline::Str(s)
+    }
+}
+
+/// A string where one block goes is `Plain` text, as in pandoc's Lua.
+impl From<&str> for Block {
+    fn from(s: &str) -> Self {
+        Block::Plain(inlines(s))
+    }
+}
+
+impl From<String> for Block {
+    fn from(s: String) -> Self {
+        Block::Plain(inlines(&s))
+    }
+}
+
 impl Pandoc {
     /// A document with these blocks and no metadata.
     pub fn new(blocks: Vec<Block>) -> Self {

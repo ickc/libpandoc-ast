@@ -66,7 +66,9 @@ class Gen:
         raise ValueError(ty)
 
     def param(self, ty: dict) -> str:
-        """What a constructor accepts: attributes also as a record."""
+        """What a constructor accepts: attributes also as a record, and
+        strings where inlines or blocks go, as pandoc's Lua converts them
+        (the types Inlines and Blocks)."""
         r = self.resolve(ty)
         if (
             "list" in r
@@ -74,6 +76,15 @@ class Gen:
             and all(t.get("prim") == "string" for t in r["list"]["tuple"])
         ):
             return f"{self.ts(ty)} | Record<string, string>"
+        if "list" in r:
+            item = self.resolve(r["list"])
+            if item.get("ref") in ("Inline", "Block"):
+                return f"{item['ref']}s"
+            if "list" in item or "tuple" in item:
+                inner = self.param(r["list"])
+                return f"({inner})[]" if "|" in inner else f"{inner}[]"
+        if "tuple" in r:
+            return f"[{', '.join(self.param(t) for t in r['tuple'])}]"
         return self.ts(ty)
 
     def camel_schema(self) -> dict:
@@ -112,6 +123,14 @@ class Gen:
             else:
                 out.append(self.interface(t, tagged=False))
                 constructors.append((name, name))
+        out.append(
+            "/** Inlines as constructors take them: a string is its words and spaces,\n"
+            " * and a string in the list a Str, as in pandoc's Lua. */\n"
+            "export type Inlines = (Inline | string)[] | string;\n\n"
+            "/** Blocks as constructors take them: a string is Plain text, as in\n"
+            " * pandoc's Lua. */\n"
+            "export type Blocks = (Block | string)[] | string;\n\n"
+        )
         out.append("/** Every constructor and product, by name. */\n")
         out.append("export interface Nodes {\n")
         out.extend(f"  {n}: {ty};\n" for n, ty in constructors)

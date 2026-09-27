@@ -44,10 +44,29 @@ end
     @test_throws ArgumentError Code("x"; attr = Attr(), identifier = "y")
 end
 
+@testset "strings convert as in pandoc's Lua" begin
+    hw = Inline[Str("hello"), Space(), Str("world")]
+    @test Para("hello world").content == hw
+    @test Header(1, "a\nb").content == [Str("a"), SoftBreak(), Str("b")]
+    @test Para("a b", Emph("c")).content == [Str("a b"), Emph(Str("c"))]  # several: each a Str
+    @test Para(["a b", Emph("c")]).content == [Str("a b"), Emph(Str("c"))]
+    @test Div("hello world").content == [Plain(hw...)]
+    @test Pandoc("x").blocks == [Plain(Str("x"))]
+    @test BulletList("a", "b c").content == [[Plain(Str("a"))], [Plain(Str("b"), Space(), Str("c"))]]
+    @test LineBlock("a b", [Str("c")]).content == [[Str("a"), Space(), Str("b")], [Str("c")]]
+    p = Para()
+    p.content = "hello world"
+    @test p.content == hw
+    push!(p.content, "!")
+    @test p.content[end] == Str("!")
+    @test inlines(" a  b\n") == [Space(), Str("a"), Space(), Str("b"), SoftBreak()]
+    @test blocks("a") == [Plain(Str("a"))]
+end
+
 @testset "Julia checks types" begin
     p = Para(Str("a"))
     @test_throws MethodError push!(p.content, Para())
-    @test_throws MethodError (p.content = "x")
+    @test_throws MethodError (p.content = 42)
     h = Header(1)
     @test_throws MethodError (h.level = "2")
     @test_throws MethodError Para(Para())

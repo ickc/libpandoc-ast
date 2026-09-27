@@ -371,10 +371,63 @@ export function check(v: unknown, type: string = SCHEMA.root): void {
 
 // -- constructors ---------------------------------------------------------------
 
+// -- strings, as pandoc's Lua converts them ----------------------------------
+
+/**
+ * Words and spaces, as pandoc-types' `text` (and pandoc's Lua) split a
+ * string: `Str` for each run of non-spaces, and for each run of spaces
+ * `SoftBreak` if it has a newline, else `Space`.
+ */
+export function textInlines(s: string): unknown[] {
+  const out: unknown[] = [];
+  for (const [run] of s.matchAll(/[ \t\n\r]+|[^ \t\n\r]+/g)) {
+    if (" \t\n\r".includes(run[0])) out.push({ t: /[\n\r]/.test(run) ? "SoftBreak" : "Space" });
+    else out.push({ t: "Str", text: run });
+  }
+  return out;
+}
+
+/** The value with its strings converted as pandoc's Lua does: where a list
+ * of inlines goes, a string is its words and spaces; where one inline goes,
+ * a `Str`; where blocks go, `Plain` text. Anything else is left for
+ * `encode` to check. */
+function fromStrings(ty: TypeExpr, v: unknown): unknown {
+  const r = resolve(ty);
+  if (typeof v === "string" && "ref" in r) {
+    if (r.ref === "Inline") return { t: "Str", text: v };
+    if (r.ref === "Block") return { t: "Plain", content: textInlines(v) };
+    return v;
+  }
+  if ("list" in r) {
+    const item = resolve(r.list);
+    if (typeof v === "string" && "ref" in item) {
+      if (item.ref === "Inline") return textInlines(v);
+      if (item.ref === "Block") return [{ t: "Plain", content: textInlines(v) }];
+    }
+    return Array.isArray(v) ? mapChanged(v, (x) => fromStrings(r.list, x)) : v;
+  }
+  if ("tuple" in r && Array.isArray(v)) {
+    return mapChanged(v, (x, i) => (i < r.tuple.length ? fromStrings(r.tuple[i], x) : x));
+  }
+  return v;
+}
+
+/** xs mapped, or xs itself if nothing changed. */
+function mapChanged(xs: unknown[], f: (x: unknown, i: number) => unknown): unknown[] {
+  let out: unknown[] | undefined;
+  xs.forEach((x, i) => {
+    const y = f(x, i);
+    if (y !== x && out === undefined) out = xs.slice(0, i);
+    if (out !== undefined) out.push(y);
+  });
+  return out ?? xs;
+}
+
 function coerce(ty: TypeExpr, v: unknown, where: string): unknown {
   const r = resolve(ty);
   // attributes may be given as a record
   if ("list" in r && "tuple" in r.list && isObject(v)) v = Object.entries(v);
+  v = fromStrings(ty, v);
   try {
     encode(ty, v);
   } catch (e) {

@@ -23,6 +23,11 @@ run_filter(upper)
 - Constructors: every field positionally (`Header(1, Attr(), Inline[])`),
   or the content as arguments with the rest as keywords:
   `Header(1, Str("Hi"); identifier = "hi")`, `Link(Str("x"); url = "u")`.
+- Strings convert as in pandoc's Lua: where a list of inlines goes, a string
+  is its words and spaces (`Para("hello world")`, `h.content = "Intro"`);
+  where one inline goes, a `Str` (`push!(p.content, "x")`, `Para("a", Emph("b"))`);
+  where blocks go, `Plain` text. `inlines("...")` and `blocks("...")` build
+  such lists.
 - `walk!(f, doc)` calls `f(x, ctx)` or `f(x)` wherever `f` has a method for
   `x`, so the most specific method wins, by dispatch. Return `nothing` to
   keep a node, a node to replace it, or a vector to splice in its place.

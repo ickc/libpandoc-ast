@@ -50,6 +50,11 @@ their arguments:
 ASTTypeError: Para.content[0]: expected Inline, got Para (a Block)
 ```
 
+Constructors take strings as pandoc's Lua does: where a list of inlines
+goes, a string is its words and spaces (`Para("hello world")`); in such a
+list, a `Str` (`Para(["a", Emph("b")])`); where blocks go, `Plain` text.
+`inlines("...")` and `blocks("...")` build such lists.
+
 `parse`/`fromJSON` report where JSON is wrong
 (`blocks[0].content[1].text: expected a string, got 42`), and
 `serialize`/`toJSON` check a document on the way out.
@@ -64,6 +69,6 @@ in its place (`[]` deletes it). Its second argument is the node's
 `Context`: `parent`, `index`, `next`/`prev`, `path`, `doc`, `format`.
 Bottom-up by default; `topDown: true` for the other way.
 
-Also: `walk`, `stringify`, `toPlain`/`fromPlain` for metadata.
+Also: `walk`, `stringify`, `inlines`/`blocks`, `toPlain`/`fromPlain` for metadata.
 
 Status: a prototype.
