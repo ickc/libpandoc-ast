@@ -13,8 +13,8 @@
 
 The same ``f`` also runs in Python: ``f(doc)`` on a ``Pandoc``, or
 ``libpandoc.convert(..., filters=[f])``, in process. A function that takes
-a ``Context`` can parse fragments as the document was read, with
-``ctx.read(text)`` (see ``pandom.conversion``).
+a ``Context`` knows the conversion (``ctx.conversion``; see
+``pandom.conversion``).
 """
 
 from __future__ import annotations

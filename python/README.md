@@ -63,7 +63,7 @@ Strings convert as in pandoc's Lua: where a list of inlines goes, a string
 is its words and spaces (`Para("hello world")`, `h.content = "Intro"`);
 where one inline goes, a `Str` (`p.content.append("x")`); where blocks go,
 `Plain` text. `inlines("...")` and `blocks("...")` build such lists. To
-parse markup, use `ctx.read` (below).
+parse markup, use libpandoc (below).
 
 Reading JSON reports the path of what's wrong:
 
@@ -99,30 +99,33 @@ function and the node's path.
 
 ### Calling pandoc from a filter
 
-`ctx.read(text)` parses a fragment, such as a table cell or an attribute,
-the way the document was read, and returns its blocks:
+pandom is the data; calling pandoc is
+[libpandoc](https://github.com/ickc/libpandoc-python)'s job. A filter that
+parses fragments, such as table cells, passes them to libpandoc with the
+conversion from its context, and they are read the way the document was:
 
 ```python
+import libpandoc
+
 @f.on(CodeBlock)
-def cell(code, ctx):
-    if "cell" in code.attr.classes:
-        return ctx.read(code.text)
+def cells(code, ctx):
+    if "cells" in code.attr.classes:
+        docs = libpandoc.read_many(code.text.splitlines(), ctx.conversion)
+        return [b for d in docs for b in d.blocks]  # read in parallel
 ```
 
 `ctx.conversion` is what the filter knows of the pandoc run it is part of,
 and that depends on who runs it:
 
-- **in process, with [libpandoc](https://github.com/ickc/libpandoc-python)**
-  (`libpandoc.convert(..., filters=[f])`, `pandocpy -F`): the input format
-  pandoc decided on (`input_format`, with extensions), the output format and
-  the conversion's `options`. `read` uses exactly that reader, in the same
-  process.
-- **as a JSON filter** (`pandoc --filter`): the output format's name and the
-  reader's options. pandoc doesn't tell JSON filters the input format, so
-  `read` assumes markdown unless given one: `ctx.read(text, "rst")`.
-
-`read` calls pandoc through libpandoc when it is installed, else the `pandoc`
-executable (or `$PANDOC`).
+- **in process, with libpandoc** (`libpandoc.convert(..., filters=[f])`,
+  `pandocpy -F`): the input format pandoc decided on (`input_format`, with
+  extensions), the output format and the conversion's `options`.
+- **as a JSON filter under libpandoc**: the same formats, from
+  `$PANDOC_INPUT_FORMAT` and `$PANDOC_OUTPUT_FORMAT`.
+- **as a JSON filter under pandoc** (`pandoc --filter`): the output format's
+  name and the reader's options. pandoc doesn't tell JSON filters the input
+  format yet (proposed: jgm/pandoc#11016), so reading assumes markdown
+  unless given one: `libpandoc.read_many(texts, "rst")`.
 
 Also: `loads`/`dumps`/`load`/`dump` for pandoc's JSON, `stringify`,
 `to_python`/`from_python` for metadata.

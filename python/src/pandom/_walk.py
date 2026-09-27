@@ -36,8 +36,8 @@ class Context:
     position from the document, as in errors: ``blocks[3].content[1]``.
 
     ``conversion`` is the pandoc run the filter is part of (``format`` is its
-    output format's name), and ``read(text)`` parses a fragment as that run
-    reads its input.
+    output format's name); ``libpandoc.read(text, ctx.conversion)`` parses a
+    fragment as that run reads its input.
     """
 
     __slots__ = ("_frames", "container", "conversion", "doc", "field", "format", "index", "parent")
@@ -78,13 +78,6 @@ class Context:
             return None
         i = self.index + step
         return self.container[i] if 0 <= i < len(self.container) else None
-
-    def read(self, text: str, format: str | None = None) -> list:
-        """Parse ``text`` as the document was read: a list of blocks.
-
-        ``format`` overrides the input format. See ``Conversion.read``.
-        """
-        return self.conversion.read(text, format)
 
     @property
     def next(self) -> Any:
