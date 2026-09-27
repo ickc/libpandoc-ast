@@ -36,6 +36,11 @@ if TYPE_CHECKING:
 
 __all__ = ["Filter", "run"]
 
+# Set by a program that runs filter scripts in its own process (pandocpy):
+# a script's ``f.main()`` then hands ``f`` to it, instead of reading stdin
+# and writing stdout, so that it runs on the program's own document objects.
+handoff: Callable[[Filter], None] | None = None
+
 F = TypeVar("F", bound=Callable[..., Any])
 
 
@@ -147,6 +152,9 @@ class Filter:
         pandoc passes the output format as the first argument, and the
         reader's options in the environment.
         """
+        if handoff is not None:
+            handoff(self)  # a runner running this script in its own process
+            return
         conversion = Conversion.from_environment(argv)
         stdin = io.TextIOWrapper(sys.stdin.buffer, encoding="utf-8")
         out = self.run_json(stdin.read(), conversion=conversion)
