@@ -10,7 +10,7 @@ in pandoc-types' order. How the classes behave is in ``_core``.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from typing import TypeAlias
+from typing import TYPE_CHECKING, TypeAlias
 
 from ._core import Enum, Node, finalize
 from ._core import flat as _flat
@@ -1394,6 +1394,83 @@ ShortCaption: TypeAlias = list[Inline]
 RowHeadColumns: TypeAlias = int
 RowSpan: TypeAlias = int
 ColSpan: TypeAlias = int
+
+# How Filter.on types a filter's functions, for type checkers only: a
+# function for a kind of node takes it (and optionally a Context) and
+# returns None, a node of the same family, or a list of them.
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+    from typing import Any, TypeVar, overload
+
+    from ._walk import Context
+
+    _F = TypeVar("_F", bound=Callable[..., Any])
+    _Node = TypeVar("_Node", bound=Node)
+    _Block = TypeVar("_Block", bound=Block)
+    _MetaValue = TypeVar("_MetaValue", bound=MetaValue)
+    _Inline = TypeVar("_Inline", bound=Inline)
+    _ColWidthBase = TypeVar("_ColWidthBase", bound=ColWidthBase)
+
+    @overload
+    def _typed_on(
+        self: Any, type: type[_Block], /, *types: type[_Block]
+    ) -> Callable[
+        [
+            Callable[[_Block], Block | Sequence[Block] | None]
+            | Callable[[_Block, Context], Block | Sequence[Block] | None]
+        ],
+        Callable[..., Any],
+    ]: ...
+
+    @overload
+    def _typed_on(
+        self: Any, type: type[_MetaValue], /, *types: type[_MetaValue]
+    ) -> Callable[
+        [
+            Callable[[_MetaValue], MetaValue | Sequence[MetaValue] | None]
+            | Callable[[_MetaValue, Context], MetaValue | Sequence[MetaValue] | None]
+        ],
+        Callable[..., Any],
+    ]: ...
+
+    @overload
+    def _typed_on(
+        self: Any, type: type[_Inline], /, *types: type[_Inline]
+    ) -> Callable[
+        [
+            Callable[[_Inline], Inline | Sequence[Inline] | None]
+            | Callable[[_Inline, Context], Inline | Sequence[Inline] | None]
+        ],
+        Callable[..., Any],
+    ]: ...
+
+    @overload
+    def _typed_on(
+        self: Any, type: type[_ColWidthBase], /, *types: type[_ColWidthBase]
+    ) -> Callable[
+        [
+            Callable[[_ColWidthBase], ColWidthBase | Sequence[ColWidthBase] | None]
+            | Callable[[_ColWidthBase, Context], ColWidthBase | Sequence[ColWidthBase] | None]
+        ],
+        Callable[..., Any],
+    ]: ...
+
+    @overload
+    def _typed_on(
+        self: Any, type: type[_Node], /, *types: type[_Node]
+    ) -> Callable[
+        [
+            Callable[[_Node], _Node | Sequence[_Node] | None]
+            | Callable[[_Node, Context], _Node | Sequence[_Node] | None]
+        ],
+        Callable[..., Any],
+    ]: ...
+
+    @overload
+    def _typed_on(self: Any, *types: type[Node]) -> Callable[[_F], _F]: ...
+
+    def _typed_on(self: Any, *types: Any) -> Any: ...
+
 
 __all__ = [
     "PANDOC_API_VERSION",

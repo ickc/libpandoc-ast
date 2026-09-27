@@ -157,6 +157,8 @@ class _Walker:
                     if result is not None:
                         if isinstance(result, Node):
                             result = [result]
+                        elif isinstance(result, tuple):
+                            result = list(result)
                         elif not isinstance(result, list):
                             raise ASTTypeError(
                                 spec.label + f"[{i}]",

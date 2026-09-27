@@ -24,12 +24,15 @@ import io
 import json
 import sys
 from collections.abc import Callable, Iterable
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from ._core import Node, add_note
 from ._types import Pandoc
 from ._walk import Context, walk
 from .conversion import Conversion
+
+if TYPE_CHECKING:
+    from ._types import _typed_on
 
 __all__ = ["Filter", "run"]
 
@@ -55,7 +58,7 @@ class Filter:
         self._handlers: dict[type, tuple[Callable[..., Any], bool]] = {}
         self._lookup: dict[type, tuple[Callable[..., Any], bool] | None] = {}
 
-    def on(self, *types: type) -> Callable[[F], F]:
+    def _on(self, *types: type) -> Callable[[F], F]:
         """Register the decorated function for nodes of these types."""
         for ty in types:
             if not (isinstance(ty, type) and issubclass(ty, Node)):
@@ -75,6 +78,13 @@ class Filter:
             return fn
 
         return register
+
+    if TYPE_CHECKING:
+        # typed per family of nodes (generated): a function for an Inline
+        # must take it and return inlines, ...
+        on = _typed_on
+    else:
+        on = _on
 
     def _handler(self, ty: type) -> tuple[Callable[..., Any], bool] | None:
         try:

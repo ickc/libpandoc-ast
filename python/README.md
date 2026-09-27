@@ -89,6 +89,11 @@ def shout(s, ctx):
         return Strong(Str(s.text.upper()))
 ```
 
+Type checkers check filter functions: one registered for a kind of node
+must take that node, and return nodes of its family (`None`, a node or a
+list: a function for `Str` can't return a `Para`). `Filter.on`'s
+signatures are generated from the schema.
+
 Each node gets the function for its class, or else for its closest base
 class (`Inline`, `Block`, ...). The walk is bottom-up (`Filter(top_down=True)`
 for the other way). An exception in a function is annotated with the

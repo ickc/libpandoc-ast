@@ -140,11 +140,49 @@ class Gen:
             if t["kind"] == "alias":
                 out.append(f"{t['name']}: TypeAlias = {self.field_type(t['type'])}\n")
                 names.append(t["name"])
+        out.append(self.typed_on())
         out.append("\n__all__ = [\n")
         out.extend(f"    {n!r},\n" for n in ["PANDOC_API_VERSION", *names])
         out.append("]\n\n")
         out.append("finalize(globals(), PANDOC_API_VERSION)\n")
         return "".join(out)
+
+    def typed_on(self) -> str:
+        """``Filter.on``'s signatures for type checkers: per family of nodes
+        (Block, Inline, ...), what a function for it takes and returns."""
+        sums = [self.cls_name[t["name"]] for t in self.schema["types"] if t["kind"] == "sum"]
+        o = [
+            "\n# How Filter.on types a filter's functions, for type checkers only: a\n"
+            "# function for a kind of node takes it (and optionally a Context) and\n"
+            "# returns None, a node of the same family, or a list of them.\n"
+            "if TYPE_CHECKING:\n"
+            "    from collections.abc import Callable, Sequence\n"
+            "    from typing import Any, TypeVar, overload\n\n"
+            "    from ._walk import Context\n\n"
+            '    _F = TypeVar("_F", bound=Callable[..., Any])\n'
+            '    _Node = TypeVar("_Node", bound=Node)\n'
+        ]
+        o += [f'    _{b} = TypeVar("_{b}", bound={b})\n' for b in sums]
+        o.append("\n")
+
+        def overload(var: str, result: str) -> str:
+            fn = f"Callable[[{var}], {result}] | Callable[[{var}, Context], {result}]"
+            return (
+                "    @overload\n"
+                f"    def _typed_on(\n"
+                f"        self: Any, type: type[{var}], /, *types: type[{var}]\n"
+                f"    ) -> Callable[[{fn}], Callable[..., Any]]: ...\n\n"
+            )
+
+        for b in sums:
+            o.append(overload(f"_{b}", f"{b} | Sequence[{b}] | None"))
+        o.append(overload("_Node", "_Node | Sequence[_Node] | None"))
+        o.append(
+            "    @overload\n"
+            "    def _typed_on(self: Any, *types: type[Node]) -> Callable[[_F], _F]: ...\n\n"
+            "    def _typed_on(self: Any, *types: Any) -> Any: ...\n"
+        )
+        return "".join(o)
 
     @staticmethod
     def enum(t: dict) -> str:
@@ -293,7 +331,7 @@ in pandoc-types' order. How the classes behave is in ``_core``.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from typing import TypeAlias
+from typing import TYPE_CHECKING, TypeAlias
 
 from ._core import Enum, Node, finalize
 from ._core import flat as _flat

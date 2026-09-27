@@ -51,3 +51,59 @@ def test_pyright_sees_field_and_argument_types(tmp_path):
         ),
         (6, "information", 'Type of "h.content" is "list[Inline]"'),
     ]
+
+
+FILTERS = textwrap.dedent("""
+    from pandom import Block, Context, Filter, Header, Inline, Para, Space, Str
+
+    f = Filter()
+
+    @f.on(Header)
+    def ok(h: Header) -> Block:
+        return Para("x")
+
+    @f.on(Header)
+    def wrong_parameter(s: Str) -> None: ...
+
+    @f.on(Str)
+    def wrong_return(s):
+        return Para("x")
+
+    @f.on(Str)
+    def splice(s, ctx: Context):
+        return [Str("a"), Space()]
+
+    @f.on(Header, Para)
+    def two(b: Header | Para) -> None: ...
+
+    @f.on(Str, Para)
+    def mixed(x) -> None: ...
+""")
+
+
+@pytest.mark.skipif(shutil.which("pyright") is None, reason="needs pyright")
+def test_pyright_checks_filter_functions(tmp_path):
+    """A function registered for a kind of node must take it and return the
+    same family (Filter.on's generated signatures)."""
+    (tmp_path / "filters.py").write_text(FILTERS)
+    (tmp_path / "pyrightconfig.json").write_text(
+        json.dumps({"extraPaths": [str(SRC)], "pythonVersion": "3.10"})
+    )
+    out = subprocess.run(
+        [
+            "pyright",
+            "--outputjson",
+            "-p",
+            str(tmp_path / "pyrightconfig.json"),
+            str(tmp_path / "filters.py"),
+        ],
+        capture_output=True,
+        text=True,
+    ).stdout
+    errors = [
+        (d["range"]["start"]["line"], d["message"].splitlines()[0])
+        for d in json.loads(out)["generalDiagnostics"]
+        if d["severity"] == "error"
+    ]
+    # the decorators of wrong_parameter and wrong_return
+    assert [line for line, _ in errors] == [9, 12], errors
