@@ -23,6 +23,9 @@ run_filter(upper)
 - Constructors: every field positionally (`Header(1, Attr(), Inline[])`),
   or the content as arguments with the rest as keywords:
   `Header(1, Str("Hi"); identifier = "hi")`, `Link(Str("x"); url = "u")`.
+  The content may also be one vector: `Div(blocks; identifier = "d")`
+  (except where the content is a list of lists: `BulletList([Plain("a")])`
+  is one item).
 - Strings convert as in pandoc's Lua: where a list of inlines goes, a string
   is its words and spaces (`Para("hello world")`, `h.content = "Intro"`);
   where one inline goes, a `Str` (`push!(p.content, "x")`, `Para("a", Emph("b"))`);

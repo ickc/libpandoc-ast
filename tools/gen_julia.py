@@ -13,7 +13,8 @@ Julia checks field types itself: ``push!(para.content, Para())`` fails. Each
 struct gets the positional constructor of all its fields and, where it
 differs, a convenience one, as in Python: required fields, then the
 variadic field as varargs, then keywords (defaults; flattened products by
-their fields' names): ``Header(1, Str("Hi"); identifier = "hi")``.
+their fields' names): ``Header(1, Str("Hi"); identifier = "hi")``. The
+variadic field may also be one vector: ``Header(1, [Str("Hi")]; ...)``.
 
     python3 tools/gen_julia.py
 """
@@ -194,12 +195,20 @@ class Gen:
         for f in fields:
             lines.append(f"    {ident(f['name'])}::{self.jl(f['type'])}")
         if fields:
-            # the positional constructor; lists and maps typed, so that it
-            # doesn't overlap the convenience constructor's varargs
+            # the positional constructor; lists, maps and products typed, so
+            # that it doesn't overlap the convenience constructor's varargs
+            # (OrderedList(list_attributes, items) and OrderedList(item, item))
             params = []
             for f in fields:
                 r = self.resolve(f["type"])
-                ann = "::AbstractVector" if "list" in r else "::AbstractDict" if "map" in r else ""
+                if "list" in r:
+                    ann = "::AbstractVector"
+                elif "map" in r:
+                    ann = "::AbstractDict"
+                elif "ref" in r and self.types[r["ref"]]["kind"] == "product":
+                    ann = f"::{self.jl(r)}"
+                else:
+                    ann = ""
                 params.append(f"{ident(f['name'])}{ann}")
             names = ", ".join(ident(f["name"]) for f in fields)
             lines.append(f"    {name}({', '.join(params)}) = new({names})")
@@ -217,6 +226,7 @@ class Gen:
         name, fields = c["name"], c["fields"]
         variadic = c.get("variadic")
         positional, star, kws, args, flats = [], None, [], [], []
+        vector = None  # the variadic field given as one vector, when that is unambiguous
         for f in fields:
             n = ident(f["name"])
             r = self.resolve(f["type"])
@@ -235,6 +245,9 @@ class Gen:
                 else:
                     star_t = self.jl(r["list"])
                 star = f"{n}::{star_t}..."
+                # not for a list of lists: OrderedList([Plain(...)]) is one item
+                if "list" not in item:
+                    vector = f"{n}::AbstractVector"
                 args.append(f"_variadic({self.jl(r['list'])}, {n})")
             elif f.get("flatten"):
                 prod = self.types[f["type"]["ref"]]
@@ -257,14 +270,24 @@ class Gen:
                 args.append(n)
         if star is None and not kws:
             return None  # the positional constructor is all there is
-        sig = ", ".join(positional + ([star] if star else []))
-        if kws:
-            sig += "; " + ", ".join(kws)
         body = []
         for f, fl in zip([f for f in fields if f.get("flatten")], flats):
             body.append(f"    __{f['name']} = {fl}")
         body.append(f"    {name}({', '.join(args)})")
-        return f"function {name}({sig})\n" + "\n".join(body) + "\nend"
+
+        def method(last: str | None) -> str:
+            sig = ", ".join(positional + ([last] if last else []))
+            if kws:
+                sig += "; " + ", ".join(kws)
+            return f"function {name}({sig})\n" + "\n".join(body) + "\nend"
+
+        out = method(star)
+        # the variadic field as a vector too (Div(xs; identifier = "x")), as
+        # the positional constructor takes it; without keywords, that is the
+        # positional constructor itself (Para(xs))
+        if vector and kws:
+            out += "\n" + method(vector)
+        return out
 
 
 HEADER = """\

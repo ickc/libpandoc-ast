@@ -42,6 +42,16 @@ end
     @test Link(Str("x"); url = "u").target == Target("u", "")
     @test_throws ArgumentError Link(Str("x"))
     @test_throws ArgumentError Code("x"; attr = Attr(), identifier = "y")
+    # the content as one vector, as Para(xs) takes it
+    xs = Block[Para(Str("a")), Para(Str("b"))]
+    @test Div(xs).content == xs && Div(xs; identifier = "d").attr.identifier == "d"
+    @test Header(2, [Str("a"), "b"]; identifier = "h").content == [Str("a"), Str("b")]
+    @test Link([Str("x")]; url = "u").content == [Str("x")]
+    @test Cell(xs; col_span = 2).content == xs
+    @test Pandoc(xs).blocks == xs
+    @test Row([Cell(), Cell()]).cells == [Cell(), Cell()]
+    @test OrderedList([Plain("a")], [Plain("b")]).content == [[Plain(Str("a"))], [Plain(Str("b"))]]
+    @test isempty(Test.detect_ambiguities(Panir))
 end
 
 @testset "strings convert as in pandoc's Lua" begin
