@@ -4,7 +4,7 @@
 pandoc --filter ./demote.py input.md
 """
 
-from pandom import Filter, Header, Space, Str
+from panir import Filter, Header, Space, Str
 
 f = Filter()
 counter = 0

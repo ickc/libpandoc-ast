@@ -16,7 +16,7 @@ Writes, from the pandoc-types this is built with:
 Every binding must decode and re-encode each document unchanged: that is
 what keeps a binding's encoding identical to pandoc's.
 
-    pandom-schema OUTDIR [COUNT]
+    panir-schema OUTDIR [COUNT]
 -}
 module Main (main) where
 
@@ -43,7 +43,7 @@ main = do
   (out, count) <- case args of
     [o] -> pure (o, 200)
     [o, n] -> pure (o, read n)
-    _ -> fail "usage: pandom-schema OUTDIR [COUNT]"
+    _ -> fail "usage: panir-schema OUTDIR [COUNT]"
   createDirectoryIfMissing True out
   B8.writeFile (out </> "reified.json") (B8.pack $(schemaOf ''Pandoc) <> "\n")
   BL8.writeFile (out </> "arbitrary.jsonl") $ BL8.unlines

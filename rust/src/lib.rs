@@ -6,9 +6,9 @@
 //! pandoc JSON filter (`pandoc --filter`).
 //!
 //! ```
-//! use pandom::{Block, Inline, Pandoc};
+//! use panir::{Block, Inline, Pandoc};
 //!
-//! let doc: Pandoc = pandom::from_str(
+//! let doc: Pandoc = panir::from_str(
 //!     r#"{"pandoc-api-version":[1,23,1],"meta":{},"blocks":[{"t":"Para","c":[{"t":"Str","c":"hi"}]}]}"#,
 //! ).unwrap();
 //! assert_eq!(doc.blocks, vec![Block::Para(vec![Inline::Str("hi".into())])]);
@@ -103,7 +103,7 @@ pub fn de_tag<'de, D: serde::Deserializer<'de>>(
 /// of spaces `SoftBreak` if it has a newline, else `Space`.
 ///
 /// ```
-/// use pandom::{inlines, Block, Inline};
+/// use panir::{inlines, Block, Inline};
 ///
 /// let p = Block::Para(inlines("hello world"));
 /// assert_eq!(p, Block::Para(vec!["hello".into(), Inline::Space, "world".into()]));
@@ -180,8 +180,8 @@ impl Pandoc {
 /// argument), if any. Errors go to stderr and exit with status 1.
 ///
 /// ```no_run
-/// pandom::filter(|doc, _format| {
-///     doc.blocks.retain(|b| !matches!(b, pandom::Block::HorizontalRule));
+/// panir::filter(|doc, _format| {
+///     doc.blocks.retain(|b| !matches!(b, panir::Block::HorizontalRule));
 /// });
 /// ```
 pub fn filter<F: FnOnce(&mut Pandoc, Option<&str>)>(f: F) {
@@ -199,7 +199,7 @@ pub fn filter<F: FnOnce(&mut Pandoc, Option<&str>)>(f: F) {
                 .expect("writing stdout");
         }
         Err(e) => {
-            eprintln!("pandom filter: {e}");
+            eprintln!("panir filter: {e}");
             std::process::exit(1);
         }
     }

@@ -1,5 +1,5 @@
-using Pandom
-using Pandom: fromjson, tojson, parse, serialize
+using Panir
+using Panir: fromjson, tojson, parse, serialize
 using JSON
 using Test
 

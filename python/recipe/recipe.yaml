@@ -8,7 +8,7 @@ context:
   version: "0.1.0"
 
 package:
-  name: pandom
+  name: panir
   version: ${{ version }}
 
 source:
@@ -32,7 +32,7 @@ requirements:
 tests:
   - python:
       imports:
-        - pandom
+        - panir
       python_version: ${{ python_min }}.*
   - files:
       source:
@@ -47,8 +47,8 @@ tests:
       - pytest -v python/tests
 
 about:
-  homepage: https://github.com/ickc/pandom
-  repository: https://github.com/ickc/pandom
+  homepage: https://github.com/ickc/panir
+  repository: https://github.com/ickc/panir
   license: BSD-3-Clause
   license_file: LICENSE
   summary: pandoc's document AST, generated from pandoc-types, with checks and filters

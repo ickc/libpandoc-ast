@@ -1,6 +1,6 @@
 """Filters: functions on node types, run as a pandoc filter or in Python.
 
-    from pandom import Filter, Header
+    from panir import Filter, Header
 
     f = Filter()
 
@@ -14,7 +14,7 @@
 The same ``f`` also runs in Python: ``f(doc)`` on a ``Pandoc``, or
 ``libpandoc.convert(..., filters=[f])``, in process. A function that takes
 a ``Context`` knows the conversion (``ctx.conversion``; see
-``pandom.conversion``).
+``panir.conversion``).
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ __all__ = ["Filter", "run"]
 # document objects. Per thread (a context variable), so that scripts may run
 # in several threads at once.
 handoff: ContextVar[Callable[[Filter], None] | None] = ContextVar(
-    "pandom_filter_handoff", default=None
+    "panir_filter_handoff", default=None
 )
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -109,13 +109,13 @@ class Filter:
         try:
             return fn(node, ctx) if wants_ctx else fn(node)
         except Exception as e:
-            if not getattr(e, "_pandom_noted", False):
+            if not getattr(e, "_panir_noted", False):
                 add_note(
                     e,
                     f"in filter function {fn.__qualname__}, on the "
                     f"{type(node).__name__} at {ctx.where}",
                 )
-                e._pandom_noted = True  # type: ignore[attr-defined]
+                e._panir_noted = True  # type: ignore[attr-defined]
             raise
 
     def __call__(

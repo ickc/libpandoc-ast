@@ -1,11 +1,11 @@
-# pandom-js (TypeScript)
+# panir (TypeScript)
 
 pandoc's document AST for TypeScript and JavaScript, in the browser or in
 Node.js, generated from pandoc-types: types, pandoc's JSON, checks with
 useful errors, and filters in the style of pandoc's Lua filters.
 
 ```ts
-import { applyFilter, Header, parse, serialize, Str } from "pandom-js";
+import { applyFilter, Header, parse, serialize, Str } from "panir";
 
 const doc = parse(json); // pandoc's JSON, checked
 applyFilter(doc, {
@@ -20,8 +20,8 @@ with `node`, so the filter's `package.json` should say `"type": "module"`):
 
 ```js
 #!/usr/bin/env node
-import { Str } from "pandom-js";
-import { runFilter } from "pandom-js/node";
+import { Str } from "panir";
+import { runFilter } from "panir/node";
 
 await runFilter({ Str: (s) => Str(s.text.toUpperCase()) });
 ```

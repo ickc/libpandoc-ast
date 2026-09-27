@@ -11,12 +11,12 @@ constraints: pandoc-types ==$PANDOC_TYPES_VERSION
 EOT
 out=$(mktemp -d)
 trap 'rm -rf "$out"' EXIT
-(cd haskell && cabal run -v1 pandom-schema -- "$out")
+(cd haskell && cabal run -v1 panir-schema -- "$out")
 mv "$out/reified.json" schema/reified.json
 mv "$out/arbitrary.jsonl" corpus/arbitrary.jsonl
 python3 tools/derive.py
 python3 tools/gen_python.py
-ruff format -q python/src/pandom/_types.py
+ruff format -q python/src/panir/_types.py
 python3 tools/gen_rust.py
 rustfmt --edition 2021 rust/src/generated.rs
 python3 tools/gen_ts.py

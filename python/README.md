@@ -1,11 +1,11 @@
-# pandom
+# panir
 
 pandoc's document AST in Python, generated from pandoc-types: checked types,
 pandoc's JSON, and filters that run under `pandoc --filter` or in-process
 with [libpandoc](https://github.com/ickc/libpandoc-python).
 
 ```python
-from pandom import Filter, Header, Str
+from panir import Filter, Header, Str
 
 f = Filter()
 
@@ -26,7 +26,7 @@ are `Block`s, `Str` and `Emph` are `Inline`s. Fields have pandoc-types' names
 and order, as in pandoc's Lua API: `Header(level, *content, attr=...)`.
 
 ```python
->>> from pandom import *
+>>> from panir import *
 >>> h = Header(1, Str("Intro"), identifier="intro")
 >>> h
 Header(1, Str('Intro'), identifier='intro')
@@ -104,7 +104,7 @@ function and the node's path.
 
 ### Calling pandoc from a filter
 
-pandom is the data; calling pandoc is
+panir is the data; calling pandoc is
 [libpandoc](https://github.com/ickc/libpandoc-python)'s job. A filter that
 parses fragments, such as table cells, passes them to libpandoc with the
 conversion from its context, and they are read the way the document was:

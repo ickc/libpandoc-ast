@@ -11,7 +11,7 @@ import pytest
 SRC = Path(__file__).resolve().parents[1] / "src"
 
 SAMPLE = textwrap.dedent("""
-    from pandom import Header, Para, Str
+    from panir import Header, Para, Str
 
     h = Header(1, Str("x"))
     h.level = "2"
@@ -54,7 +54,7 @@ def test_pyright_sees_field_and_argument_types(tmp_path):
 
 
 FILTERS = textwrap.dedent("""
-    from pandom import Block, Context, Filter, Header, Inline, Para, Space, Str
+    from panir import Block, Context, Filter, Header, Inline, Para, Space, Str
 
     f = Filter()
 

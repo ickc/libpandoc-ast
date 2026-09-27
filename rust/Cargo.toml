@@ -1,11 +1,11 @@
 [package]
-name = "pandom"
+name = "panir"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.74"
 description = "pandoc's document AST, generated from pandoc-types: types, pandoc's JSON, a visitor"
 license = "BSD-3-Clause"
-repository = "https://github.com/ickc/pandom"
+repository = "https://github.com/ickc/panir"
 keywords = ["pandoc", "ast", "markdown", "filter"]
 categories = ["text-processing", "parser-implementations"]
 

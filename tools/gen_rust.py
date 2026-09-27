@@ -486,7 +486,7 @@ VISITOR_DOC = """\
 /// after: top-down).
 ///
 /// ```
-/// use pandom::{Inline, VisitMut, walk_inline};
+/// use panir::{Inline, VisitMut, walk_inline};
 ///
 /// struct Upper;
 /// impl VisitMut for Upper {

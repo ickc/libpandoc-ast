@@ -3,7 +3,7 @@
 #
 #     pandoc --filter ./upper.jl input.md
 
-using Pandom
+using Panir
 
 upper(s::Str) = Str(uppercase(s.text))
 

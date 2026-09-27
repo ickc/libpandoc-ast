@@ -1,7 +1,7 @@
-# pandom
+# panir
 
-pandoc's document object model (pan + DOM, as pandoc is pan + doc): its
-document AST for other languages, generated from
+pandoc's intermediate representation (pan + IR): the document AST every
+pandoc reader produces and every writer consumes, for other languages, generated from
 [pandoc-types](https://github.com/jgm/pandoc-types) rather than written by
 hand: types, pandoc's JSON encoding, checks with useful errors, and filters.
 
@@ -11,10 +11,10 @@ libpandoc's bindings, unchanged.
 
 | language | status | package |
 |---|---|---|
-| Python | working | [`python/`](python/): `pandom` on PyPI (not yet published) |
-| Rust | prototype | [`rust/`](rust/): crate `pandom` |
-| TypeScript | prototype | [`ts/`](ts/): npm `pandom-js` (`pandom` is taken), browser and Node.js |
-| Julia | prototype | [`julia/`](julia/): `Pandom.jl` |
+| Python | working | [`python/`](python/): `panir` on PyPI (not yet published) |
+| Rust | prototype | [`rust/`](rust/): crate `panir` |
+| TypeScript | prototype | [`ts/`](ts/): npm `panir` (`panir` is taken), browser and Node.js |
+| Julia | prototype | [`julia/`](julia/): `Panir.jl` |
 
 Each follows its language's idioms, from the same schema:
 

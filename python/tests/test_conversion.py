@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from pandom import Conversion, Filter, Pandoc, Para, Str
+from panir import Conversion, Filter, Pandoc, Para, Str
 
 
 def test_from_environment(monkeypatch):

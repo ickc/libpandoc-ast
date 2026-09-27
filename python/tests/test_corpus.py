@@ -1,6 +1,6 @@
 """The shared corpus: what every binding must accept and reject."""
 
-import pandom as A
+import panir as A
 import pytest
 from conftest import jsonl
 

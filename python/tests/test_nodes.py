@@ -3,9 +3,9 @@
 import copy
 import pickle
 
-import pandom as A
+import panir as A
 import pytest
-from pandom import (
+from panir import (
     ASTTypeError,
     Attr,
     Cell,

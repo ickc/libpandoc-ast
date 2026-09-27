@@ -1,12 +1,12 @@
 cabal-version:      3.0
-name:               pandom-schema
+name:               panir-schema
 version:            0.1.0
 synopsis:           Writes the schema and test corpus of pandoc's document AST
 license:            BSD-3-Clause
 author:             Kolen Cheung
 build-type:         Simple
 
-executable pandom-schema
+executable panir-schema
   main-is:          Main.hs
   hs-source-dirs:   app, src
   other-modules:    SchemaTH
