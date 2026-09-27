@@ -5,10 +5,12 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from ._core import Node, NodeList
+from ._core import Node, NodeList, text_inlines
 from ._types import (
+    Block,
     Cite,
     Code,
+    Inline,
     LineBreak,
     Math,
     MetaBlocks,
@@ -19,6 +21,7 @@ from ._types import (
     MetaString,
     MetaValue,
     Note,
+    Plain,
     Quoted,
     QuoteType,
     RawInline,
@@ -28,9 +31,26 @@ from ._types import (
 )
 from ._walk import _walk_fields
 
-__all__ = ["from_python", "stringify", "to_python"]
+__all__ = ["blocks", "from_python", "inlines", "stringify", "to_python"]
 
 _QUOTES = {QuoteType.SingleQuote: ("‘", "’"), QuoteType.DoubleQuote: ("“", "”")}
+
+
+def inlines(text: str) -> list[Inline]:
+    """A string's words and spaces, as pandoc's Lua ``pandoc.Inlines``:
+    ``Str`` for each word, ``Space`` between, ``SoftBreak`` for a newline.
+
+    Constructors and fields convert a string this way themselves
+    (``Para("hello world")``); this is for building lists.
+    """
+    return text_inlines(text)  # type: ignore[return-value]
+
+
+def blocks(text: str) -> list[Block]:
+    """A string as blocks, as pandoc's Lua ``pandoc.Blocks``: one ``Plain``
+    of its words and spaces. (To parse markup, use ``ctx.read``.)"""
+    out: list[Block] = [Plain(*inlines(text))]
+    return out
 
 
 def stringify(value: Any) -> str:

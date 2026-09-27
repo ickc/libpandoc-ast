@@ -55,9 +55,15 @@ error says where and what:
 >>> p = Para(Str("a"))
 >>> p.content.append(Para())
 ASTTypeError: Para.content[1]: expected Inline, got Para (a Block)
->>> p.content[0] = "a"
-ASTTypeError: Para.content[0]: expected Inline, got str 'a' (did you mean Str('a')?)
+>>> p.content[0] = 1.5
+ASTTypeError: Para.content[0]: expected Inline, got float 1.5
 ```
+
+Strings convert as in pandoc's Lua: where a list of inlines goes, a string
+is its words and spaces (`Para("hello world")`, `h.content = "Intro"`);
+where one inline goes, a `Str` (`p.content.append("x")`); where blocks go,
+`Plain` text. `inlines("...")` and `blocks("...")` build such lists. To
+parse markup, use `ctx.read` (below).
 
 Reading JSON reports the path of what's wrong:
 

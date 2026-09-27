@@ -90,7 +90,7 @@ class Pandoc(Node):
 
     def __init__(
         self,
-        *blocks: Block,
+        *blocks: Block | str,
         meta: Mapping[str, MetaValue] | None = None,
     ) -> None:
         _init(self, {"meta": meta, "blocks": blocks})
@@ -114,7 +114,7 @@ class Plain(Block):
 
     content: list[Inline]
 
-    def __init__(self, *content: Inline) -> None:
+    def __init__(self, *content: Inline | str) -> None:
         _init(self, {"content": content})
 
 
@@ -129,7 +129,7 @@ class Para(Block):
 
     content: list[Inline]
 
-    def __init__(self, *content: Inline) -> None:
+    def __init__(self, *content: Inline | str) -> None:
         _init(self, {"content": content})
 
 
@@ -144,7 +144,7 @@ class LineBlock(Block):
 
     content: list[list[Inline]]
 
-    def __init__(self, *content: Iterable[Inline]) -> None:
+    def __init__(self, *content: Iterable[Inline | str] | str) -> None:
         _init(self, {"content": content})
 
 
@@ -212,7 +212,7 @@ class BlockQuote(Block):
 
     content: list[Block]
 
-    def __init__(self, *content: Block) -> None:
+    def __init__(self, *content: Block | str) -> None:
         _init(self, {"content": content})
 
 
@@ -237,7 +237,7 @@ class OrderedList(Block):
 
     def __init__(
         self,
-        *content: Iterable[Block],
+        *content: Iterable[Block | str] | str,
         list_attributes: ListAttributes | None = None,
         start: int = 1,
         style: ListNumberStyle = ListNumberStyle.DefaultStyle,
@@ -264,7 +264,7 @@ class BulletList(Block):
 
     content: list[list[Block]]
 
-    def __init__(self, *content: Iterable[Block]) -> None:
+    def __init__(self, *content: Iterable[Block | str] | str) -> None:
         _init(self, {"content": content})
 
 
@@ -281,7 +281,7 @@ class DefinitionList(Block):
 
     def __init__(
         self,
-        *content: tuple[Iterable[Inline], Iterable[Iterable[Block]]],
+        *content: tuple[Iterable[Inline | str] | str, Iterable[Iterable[Block | str] | str]],
     ) -> None:
         _init(self, {"content": content})
 
@@ -308,7 +308,7 @@ class Header(Block):
     def __init__(
         self,
         level: int,
-        *content: Inline,
+        *content: Inline | str,
         attr: Attr | None = None,
         identifier: str = "",
         classes: Iterable[str] = (),
@@ -416,7 +416,7 @@ class Figure(Block):
 
     def __init__(
         self,
-        *content: Block,
+        *content: Block | str,
         attr: Attr | None = None,
         identifier: str = "",
         classes: Iterable[str] = (),
@@ -451,7 +451,7 @@ class Div(Block):
 
     def __init__(
         self,
-        *content: Block,
+        *content: Block | str,
         attr: Attr | None = None,
         identifier: str = "",
         classes: Iterable[str] = (),
@@ -543,7 +543,7 @@ class MetaInlines(MetaValue):
 
     content: list[Inline]
 
-    def __init__(self, *content: Inline) -> None:
+    def __init__(self, *content: Inline | str) -> None:
         _init(self, {"content": content})
 
 
@@ -558,7 +558,7 @@ class MetaBlocks(MetaValue):
 
     content: list[Block]
 
-    def __init__(self, *content: Block) -> None:
+    def __init__(self, *content: Block | str) -> None:
         _init(self, {"content": content})
 
 
@@ -594,7 +594,7 @@ class Emph(Inline):
 
     content: list[Inline]
 
-    def __init__(self, *content: Inline) -> None:
+    def __init__(self, *content: Inline | str) -> None:
         _init(self, {"content": content})
 
 
@@ -609,7 +609,7 @@ class Underline(Inline):
 
     content: list[Inline]
 
-    def __init__(self, *content: Inline) -> None:
+    def __init__(self, *content: Inline | str) -> None:
         _init(self, {"content": content})
 
 
@@ -624,7 +624,7 @@ class Strong(Inline):
 
     content: list[Inline]
 
-    def __init__(self, *content: Inline) -> None:
+    def __init__(self, *content: Inline | str) -> None:
         _init(self, {"content": content})
 
 
@@ -639,7 +639,7 @@ class Strikeout(Inline):
 
     content: list[Inline]
 
-    def __init__(self, *content: Inline) -> None:
+    def __init__(self, *content: Inline | str) -> None:
         _init(self, {"content": content})
 
 
@@ -654,7 +654,7 @@ class Superscript(Inline):
 
     content: list[Inline]
 
-    def __init__(self, *content: Inline) -> None:
+    def __init__(self, *content: Inline | str) -> None:
         _init(self, {"content": content})
 
 
@@ -669,7 +669,7 @@ class Subscript(Inline):
 
     content: list[Inline]
 
-    def __init__(self, *content: Inline) -> None:
+    def __init__(self, *content: Inline | str) -> None:
         _init(self, {"content": content})
 
 
@@ -684,7 +684,7 @@ class SmallCaps(Inline):
 
     content: list[Inline]
 
-    def __init__(self, *content: Inline) -> None:
+    def __init__(self, *content: Inline | str) -> None:
         _init(self, {"content": content})
 
 
@@ -704,7 +704,7 @@ class Quoted(Inline):
     quote_type: QuoteType
     content: list[Inline]
 
-    def __init__(self, quote_type: QuoteType, *content: Inline) -> None:
+    def __init__(self, quote_type: QuoteType, *content: Inline | str) -> None:
         _init(self, {"quote_type": quote_type, "content": content})
 
 
@@ -726,7 +726,7 @@ class Cite(Inline):
     def __init__(
         self,
         citations: Iterable[Citation] = (),
-        content: Iterable[Inline] = (),
+        content: Iterable[Inline | str] | str = (),
     ) -> None:
         _init(self, {"citations": citations, "content": content})
 
@@ -846,7 +846,7 @@ class Link(Inline):
 
     def __init__(
         self,
-        *content: Inline,
+        *content: Inline | str,
         attr: Attr | None = None,
         identifier: str = "",
         classes: Iterable[str] = (),
@@ -886,7 +886,7 @@ class Image(Inline):
 
     def __init__(
         self,
-        *content: Inline,
+        *content: Inline | str,
         attr: Attr | None = None,
         identifier: str = "",
         classes: Iterable[str] = (),
@@ -917,7 +917,7 @@ class Note(Inline):
 
     content: list[Block]
 
-    def __init__(self, *content: Block) -> None:
+    def __init__(self, *content: Block | str) -> None:
         _init(self, {"content": content})
 
 
@@ -939,7 +939,7 @@ class Span(Inline):
 
     def __init__(
         self,
-        *content: Inline,
+        *content: Inline | str,
         attr: Attr | None = None,
         identifier: str = "",
         classes: Iterable[str] = (),
@@ -1032,7 +1032,11 @@ class Caption(Node):
     short: ShortCaption | None
     content: list[Block]
 
-    def __init__(self, *content: Block, short: Iterable[Inline] | None = None) -> None:
+    def __init__(
+        self,
+        *content: Block | str,
+        short: Iterable[Inline | str] | str | None = None,
+    ) -> None:
         _init(self, {"short": short, "content": content})
 
 
@@ -1221,8 +1225,8 @@ class Citation(Node):
     def __init__(
         self,
         id: str,
-        prefix: Iterable[Inline] = (),
-        suffix: Iterable[Inline] = (),
+        prefix: Iterable[Inline | str] | str = (),
+        suffix: Iterable[Inline | str] | str = (),
         mode: CitationMode = CitationMode.NormalCitation,
         note_num: int = 0,
         hash: int = 0,
@@ -1355,7 +1359,7 @@ class Cell(Node):
 
     def __init__(
         self,
-        *content: Block,
+        *content: Block | str,
         attr: Attr | None = None,
         identifier: str = "",
         classes: Iterable[str] = (),

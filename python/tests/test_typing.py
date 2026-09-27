@@ -47,7 +47,7 @@ def test_pyright_sees_field_and_argument_types(tmp_path):
             5,
             "error",
             'Argument of type "Header" cannot be assigned to parameter "content" '
-            'of type "Inline" in function "__init__"',
+            'of type "Inline | str" in function "__init__"',
         ),
         (6, "information", 'Type of "h.content" is "list[Inline]"'),
     ]

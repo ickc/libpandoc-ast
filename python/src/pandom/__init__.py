@@ -22,7 +22,7 @@ from ._types import Pandoc
 from ._walk import Context, walk
 from .conversion import Conversion
 from .filter import Filter, run
-from .util import from_python, stringify, to_python
+from .util import blocks, from_python, inlines, stringify, to_python
 
 __version__ = "0.1.0"
 
@@ -57,9 +57,11 @@ __all__ = [
     "Node",
     "NodeDict",
     "NodeList",
+    "blocks",
     "dump",
     "dumps",
     "from_python",
+    "inlines",
     "load",
     "loads",
     "run",

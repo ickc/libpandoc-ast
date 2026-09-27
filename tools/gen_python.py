@@ -72,14 +72,25 @@ class Gen:
                 and all(t.get("prim") == "string" for t in inner["tuple"])
             ):
                 return "Iterable[tuple[str, str]] | Mapping[str, str]"
-            return f"Iterable[{self.param_type(inner)}]"
+            listed = f"Iterable[{self.param_type(inner)}]"
+            # a string where a list of inlines or blocks goes: split into
+            # words, as pandoc's Lua does
+            return f"{listed} | str" if self.stringy(inner) else listed
         if "map" in r:
             return f"Mapping[str, {self.param_type(r['map'][1])}]"
         if "maybe" in r:
             return f"{self.param_type(r['maybe'])} | None"
         if "tuple" in r:
             return f"tuple[{', '.join(self.param_type(t) for t in r['tuple'])}]"
+        if self.stringy(ty):
+            return f"{self.field_type(ty)} | str"
         return self.field_type(ty)
+
+    def stringy(self, ty: dict) -> bool:
+        """Whether a str converts to this type (an Inline or a Block), as in
+        pandoc's Lua."""
+        r = self.resolve(ty)
+        return r.get("ref") in ("Inline", "Block")
 
     def default_literal(self, ty: dict, value) -> str:
         r = self.resolve(ty)

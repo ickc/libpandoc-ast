@@ -64,11 +64,22 @@ def test_read_options_from_reader_options_alone():
 
 
 def test_from_environment(monkeypatch):
+    monkeypatch.delenv("PANDOC_INPUT_FORMAT", raising=False)
+    monkeypatch.delenv("PANDOC_OUTPUT_FORMAT", raising=False)
     monkeypatch.setenv("PANDOC_READER_OPTIONS", json.dumps({"tab-stop": 3}))
     c = Conversion.from_environment(["html5"])
     assert c.format == "html5"
     assert c.reader_options == {"tab-stop": 3}
     assert c.input_format is None
+
+
+def test_from_environment_with_the_formats(monkeypatch):
+    """As libpandoc (and, proposed, pandoc) tells JSON filters."""
+    monkeypatch.setenv("PANDOC_INPUT_FORMAT", "commonmark_x-smart")
+    monkeypatch.setenv("PANDOC_OUTPUT_FORMAT", "html5+smart")
+    c = Conversion.from_environment(["html5"])
+    assert (c.input_format, c.output_format) == ("commonmark_x-smart", "html5+smart")
+    assert c.read_options()["from"] == "commonmark_x-smart"
 
 
 def test_from_context():

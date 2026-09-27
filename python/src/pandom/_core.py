@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import enum
 import inspect
+import re
 import sys
 import types
 import typing
@@ -463,6 +464,14 @@ class _ListSpec(_Spec):
             return value
         if isinstance(value, Mapping) and isinstance(self.item, _TupleSpec):
             value = list(value.items())  # e.g. attributes given as a dict
+        if isinstance(value, str) and isinstance(self.item, _ClassSpec):
+            # as pandoc's Lua: a string where a list of inlines goes is its
+            # words and spaces, and where a list of blocks goes, Plain text
+            item = self.item.cls
+            if issubclass(_CLASSES["Str"], item):
+                return NodeList(self, text_inlines(value))
+            if issubclass(_CLASSES["Plain"], item):
+                return NodeList(self, [_new("Plain", *text_inlines(value))])
         if isinstance(value, (str, bytes, Node, Mapping)) or not isinstance(value, Iterable):
             hint = ""
             if self.item.accepts_node_type(type(value)):
@@ -670,15 +679,15 @@ class _ClassSpec(_Spec):
             return _make(
                 cls, [cls._specs[f].coerce(v, f"{where}.{f}") for f, v in zip(cls._fields, value)]
             )
+        if isinstance(value, str) and _is_sum(cls):
+            # as pandoc's Lua: a string is a Str where one inline goes, and
+            # Plain text where one block goes
+            if issubclass(_CLASSES["Str"], cls):
+                return _new("Str", value)
+            if issubclass(_CLASSES["Plain"], cls):
+                return _new("Plain", *text_inlines(value))
         hint = ""
-        if (
-            isinstance(value, str)
-            and _is_sum(cls)
-            and "Str" in _CLASSES
-            and issubclass(_CLASSES["Str"], cls)
-        ):
-            hint = f" (did you mean Str({value!r})?)"
-        elif isinstance(value, (list, tuple)) and value and all(isinstance(v, cls) for v in value):
+        if isinstance(value, (list, tuple)) and value and all(isinstance(v, cls) for v in value):
             hint = " (a list; this takes one)"
         self.fail(label, key, value, hint)
 
@@ -888,6 +897,30 @@ def finalize(namespace: dict[str, Any], api_version: tuple[int, ...]) -> None:
 # -- constructors ---------------------------------------------------------------
 
 
+def _new(name: str, *args: Any) -> Node:
+    """A node of a generated class, by name (``_core`` can't import them)."""
+    cls: Any = _CLASSES[name]
+    return cls(*args)
+
+
+def text_inlines(s: str) -> list[Node]:
+    """Words and spaces, as pandoc-types' ``text`` (and pandoc's Lua) split
+    a string: ``Str`` for each run of non-spaces, and for each run of
+    spaces ``SoftBreak`` if it has a newline, else ``Space``."""
+    out: list[Node] = []
+    for m in _WORDS.finditer(s):
+        run = m.group()
+        if run[0] in _SPACES:
+            out.append(_new("SoftBreak" if "\n" in run or "\r" in run else "Space"))
+        else:
+            out.append(_new("Str", run))
+    return out
+
+
+_SPACES = " \t\n\r"
+_WORDS = re.compile(r"[ \t\n\r]+|[^ \t\n\r]+")
+
+
 def init(self: Node, values: dict[str, Any]) -> None:
     """Set a node's fields, from a generated ``__init__``.
 
@@ -896,6 +929,14 @@ def init(self: Node, values: dict[str, Any]) -> None:
     cls = type(self)
     for f in cls._fields:
         v = values[f]
+        if (
+            f == cls._variadic
+            and len(v) == 1
+            and isinstance(v[0], str)
+            and isinstance(spec := cls._specs[f], _ListSpec)
+            and isinstance(spec.item, _ClassSpec)
+        ):
+            v = v[0]  # Para("a b"): the whole list as one string, as in Lua
         if v is None and f in cls._defaults:
             v = cls._specs[f].decode(cls._defaults[f])
         self.__setattr__(f, v)

@@ -11,6 +11,7 @@ from pandom import (
     Cell,
     Code,
     Div,
+    Emph,
     Header,
     Image,
     Inline,
@@ -26,6 +27,8 @@ from pandom import (
     OrderedList,
     Pandoc,
     Para,
+    Plain,
+    SoftBreak,
     Space,
     Str,
     Table,
@@ -75,7 +78,7 @@ def test_tuples_and_dicts_become_products_and_pairs():
         ("p.content.extend([Str('x'), 1])", "Para.content[4]: expected Inline, got int 1"),
         ("p.content += [Para()]", "Para.content[3]: expected Inline"),
         ("p.content[1:2] = [Str('x'), Para()]", "Para.content[2]: expected Inline"),
-        ("p.content[0] = 'x'", "did you mean Str('x')?"),
+        ("p.content[0] = 1.5", "Para.content[0]: expected Inline, got float 1.5"),
         ("p.content = Str('x')", "wrap it in a list"),
         ("Header(True, Str('x'))", "Header.level: expected an int, got bool True"),
         ("BulletList([Para()], [Str('y')])", "BulletList.content[*][0]: expected Block"),
@@ -155,3 +158,43 @@ def test_unhashable_and_equality():
         hash(Str("x"))
     assert Str("x") == Str("x")
     assert Str("x") != Code("x")
+
+
+# Strings, as pandoc's Lua converts them (pandoc-lua-marshal's "fuzzy" rules)
+
+
+def test_a_string_for_a_list_of_inlines_is_its_words():
+    assert Para("hello  world\nnext") == Para(
+        Str("hello"), Space(), Str("world"), SoftBreak(), Str("next")
+    )
+    p = Para()
+    p.content = "a b"
+    assert p == Para(Str("a"), Space(), Str("b"))
+
+
+def test_a_string_for_one_inline_is_a_str():
+    # as in Lua: pandoc.Para({"a b", pandoc.Str "c"}) is Para [Str "a b", Str "c"]
+    assert Para("a b", Emph("c")) == Para(Str("a b"), Emph(Str("c")))
+    p = Para("x")
+    p.content.append("y z")
+    assert p.content[-1] == Str("y z")
+
+
+def test_a_string_for_blocks_is_plain_text():
+    assert Div("x y") == Div(Plain(Str("x"), Space(), Str("y")))
+    assert A.blocks("m n") == [Plain(Str("m"), Space(), Str("n"))]
+
+
+def test_inlines_splits_as_pandoc_types_text():
+    assert A.inlines("  a  b\n c\td ") == [
+        Space(),
+        Str("a"),
+        Space(),
+        Str("b"),
+        SoftBreak(),
+        Str("c"),
+        Space(),
+        Str("d"),
+        Space(),
+    ]
+    assert A.inlines("") == []

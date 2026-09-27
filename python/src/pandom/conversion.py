@@ -14,9 +14,12 @@ How much is known depends on who runs the filter:
 - **in process, with libpandoc** (``libpandoc.convert(..., filters=[f])``,
   ``pandocpy -F``): everything, including the input format pandoc decided
   on and the conversion's options;
-- **as a JSON filter** (``pandoc --filter``): the output format's name and
-  the reader's options only. pandoc doesn't tell JSON filters the input
-  format, so ``read`` assumes markdown unless given one.
+- **as a JSON filter** under libpandoc (``libpandoc.convert(filters=
+  ["f.py"])``): the same, from the environment (``$PANDOC_INPUT_FORMAT``);
+- **as a JSON filter** under pandoc (``pandoc --filter``): the output
+  format's name and the reader's options only, until pandoc also sets
+  ``$PANDOC_INPUT_FORMAT`` (proposed: jgm/pandoc#11016); ``read`` assumes
+  markdown unless given a format.
 
 ``read`` calls pandoc through libpandoc when it is installed, else the
 ``pandoc`` executable (or ``$PANDOC``).
@@ -101,11 +104,18 @@ class Conversion:
         """The conversion of a JSON filter that pandoc is running.
 
         pandoc passes the output format as the first argument and the
-        reader's options in ``$PANDOC_READER_OPTIONS``.
+        reader's options in ``$PANDOC_READER_OPTIONS``. libpandoc also passes
+        the formats with extensions, ``$PANDOC_INPUT_FORMAT`` and
+        ``$PANDOC_OUTPUT_FORMAT`` (proposed to pandoc: jgm/pandoc#11016).
         """
         argv = sys.argv[1:] if argv is None else argv
         env = os.environ.get("PANDOC_READER_OPTIONS")
-        return cls(argv[0] if argv else None, reader_options=json.loads(env) if env else None)
+        return cls(
+            argv[0] if argv else None,
+            input_format=os.environ.get("PANDOC_INPUT_FORMAT") or None,
+            output_format=os.environ.get("PANDOC_OUTPUT_FORMAT") or None,
+            reader_options=json.loads(env) if env else None,
+        )
 
     @classmethod
     def from_context(
