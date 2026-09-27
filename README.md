@@ -21,11 +21,13 @@ Each follows its language's idioms, from the same schema:
 | | nodes | wrong value | filter |
 |---|---|---|---|
 | Python | a class per constructor, checked fields and lists | `ASTTypeError` where it happens | `@f.on(Header)` functions |
-| Rust | enums, structs with named fields | doesn't compile | `VisitMut` trait |
+| Rust | enums, structs with named fields | doesn't compile | a `Filter` trait (Lua's functions); `VisitMut` |
 | TypeScript | plain objects, discriminated by `t` | `ASTTypeError` from constructors and `serialize` | `{ Header(h) {...} }`, as Lua filters |
 | Julia | a struct per constructor, abstract type per sum | Julia's own `MethodError` | a method per node type |
 
-Every one of them runs as `pandoc --filter`.
+Every one of them runs as `pandoc --filter`, and runs filters as pandoc runs
+Lua filters, in the three orders filter frameworks use: typewise (Lua's
+default), top-down (Lua's option, pandocfilters), bottom-up (panflute).
 
 ## How it stays in sync with pandoc
 
@@ -51,6 +53,14 @@ schema/pandoc-ast.json ──(tools/gen_<language>.py)──> each language's de
   path of the offending value (in field names, and in the JSON), which the
   binding must report. `pandoc.jsonl`
   is pandoc's own output for `corpus/*.md`.
+- **Filters are checked against pandoc's Lua filters.** Each
+  `corpus/filters/NAME.lua` is a scenario (replacing, splicing, typewise
+  and topdown order, list functions, skipping children...), and
+  `filters.jsonl` holds what pandoc made of a document with it
+  (`scripts/filters-corpus.sh`). Each binding writes the scenario as its
+  own filter, which must make exactly the same document. Scenarios marked
+  stateless must also make it bottom-up, an order pandoc's Lua lacks. So
+  far: TypeScript, Python, Julia and Rust.
 - **Each language** generates declarations only (classes, fields, encodings)
   and has a small hand-written, generic runtime that reads them. Nothing in a
   runtime names a pandoc type, except helpers like `stringify`.

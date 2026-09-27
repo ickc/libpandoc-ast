@@ -2,8 +2,9 @@
 //!
 //! The types (`Pandoc`, `Block`, `Inline`, ...) encode to and from pandoc's
 //! JSON with serde: `{"t": "Str", "c": "x"}` is `Inline::Str("x")`.
-//! `VisitMut` walks a document to change it. `filter` runs a function as a
-//! pandoc JSON filter (`pandoc --filter`).
+//! [`Filter`] and [`apply`] run filters as pandoc runs Lua filters, in one of
+//! three orders; `VisitMut` walks a document any other way. `filter` runs a
+//! function as a pandoc JSON filter (`pandoc --filter`).
 //!
 //! ```
 //! use panir::{Block, Inline, Pandoc};
@@ -14,8 +15,10 @@
 //! assert_eq!(doc.blocks, vec![Block::Para(vec![Inline::Str("hi".into())])]);
 //! ```
 
+mod filter;
 mod generated;
 
+pub use filter::{apply, Bottomup, Ctx, Filter, Order, Topdown, Typewise};
 pub use generated::*;
 
 use std::fmt;

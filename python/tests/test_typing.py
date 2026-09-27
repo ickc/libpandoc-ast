@@ -78,6 +78,18 @@ FILTERS = textwrap.dedent("""
 
     @f.on(Str, Para)
     def mixed(x) -> None: ...
+
+    @f.on_inlines
+    def inlines(xs: list[Inline], ctx: Context) -> list[Inline]:
+        return xs
+
+    @f.on_inlines
+    def blocks_for_inlines(xs: list[Inline]) -> list[Block]:
+        return [Para()]
+
+    @f.on_meta
+    def meta(m):
+        return None
 """)
 
 
@@ -105,5 +117,6 @@ def test_pyright_checks_filter_functions(tmp_path):
         for d in json.loads(out)["generalDiagnostics"]
         if d["severity"] == "error"
     ]
-    # the decorators of wrong_parameter and wrong_return
-    assert [line for line, _ in errors] == [9, 12], errors
+    # the decorators of wrong_parameter and wrong_return (on() is called
+    # with the types first); blocks_for_inlines itself (on_inlines takes it)
+    assert [line for line, _ in errors] == [9, 12, 30], errors

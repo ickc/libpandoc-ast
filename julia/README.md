@@ -32,6 +32,17 @@ run_filter(upper)
   `x`, so the most specific method wins, by dispatch. Return `nothing` to
   keep a node, a node to replace it, or a vector to splice in its place.
   `ctx` is a `Context`: `parent`, `field`, `index`, `path`, `doc`, `format`.
+  As in pandoc's Lua filters, a method for `Vector{Inline}` or
+  `Vector{Block}` gets every list of them, and one for `Panir.Meta` the
+  metadata (`Meta` alone is `Base.Meta`); methods for anything don't count
+  there.
+- `walk!(f, doc; traverse)` sets the order, one of the three filter
+  frameworks use: `:typewise` (the default, as pandoc's Lua filters and
+  Haskell's `walk`: one walk per kind, each bottom-up, every inline before
+  any block); `:topdown` (Lua's other order, pandocfilters': a node before
+  its children, which `skip_children!(ctx)` skips); `:bottomup` (panflute's:
+  one walk, each node after its children). They are checked against pandoc's
+  Lua filters, with the scenarios in [`corpus/filters/`](../corpus/filters/).
 - `Panir.parse`/`serialize` for pandoc's JSON; parsing reports where
   JSON is wrong (`ASTDecodeError`). `stringify` for text.
 

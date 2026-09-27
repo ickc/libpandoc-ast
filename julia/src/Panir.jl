@@ -21,6 +21,6 @@ include("generated.jl")
 include("core.jl")
 include("walk.jl")
 
-export Node, ASTDecodeError, Context, walk!, run_filter, stringify, inlines, blocks
+export Node, ASTDecodeError, Context, walk!, skip_children!, run_filter, stringify, inlines, blocks
 
 end

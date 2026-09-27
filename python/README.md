@@ -95,9 +95,32 @@ list: a function for `Str` can't return a `Para`). `Filter.on`'s
 signatures are generated from the schema.
 
 Each node gets the function for its class, or else for its closest base
-class (`Inline`, `Block`, ...). The walk is bottom-up (`Filter(top_down=True)`
-for the other way). An exception in a function is annotated with the
-function and the node's path.
+class (`Inline`, `Block`, ...). As in pandoc's Lua filters, `@f.on_inlines`
+and `@f.on_blocks` register a function for every list of them, and
+`@f.on_meta` one for the metadata; each returns a replacement, or `None`. An
+exception in a function is annotated with the function and the node's path.
+
+`Filter(traverse=...)` sets the order, one of the three filter frameworks
+use:
+
+- `"typewise"` (the default, as pandoc's Lua filters and Haskell's `walk`):
+  one walk per kind, each bottom-up: every inline, then every list of
+  inlines, then every block, then every list of blocks, then the other
+  nodes, then the metadata, then `Pandoc`. So every inline is done before
+  any block's function runs.
+- `"topdown"` (Lua's other order, and pandocfilters'): `Pandoc`, the
+  metadata, then from the root down, a list before its elements and a node
+  before its children, which are walked in the node's replacement too,
+  unless the function calls `ctx.skip_children()` (Lua's `return el,
+  false`). The order in which elements start, as a reader meets them: for
+  counters and nesting.
+- `"bottomup"` (panflute's): one walk, each node after its children, a
+  list after its elements, the metadata after what is in it, `Pandoc`
+  last. The fastest.
+
+They are checked against pandoc's Lua filters: each scenario in
+[`corpus/filters/`](../corpus/filters/) is a Lua filter, and its Python
+version must make exactly the same document.
 
 `f.main()` runs a filter under pandoc; `f(doc)` on a document; `run(doc,
 [f, g])` several in turn. `walk(node, action)` is the walk underneath.

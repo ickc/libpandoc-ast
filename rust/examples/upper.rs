@@ -3,19 +3,21 @@
 //!     cargo build --example upper
 //!     pandoc --filter target/debug/examples/upper input.md
 
-use panir::{walk_inline, Inline, VisitMut};
+use panir::{Ctx, Filter, Inline, Typewise};
 
 struct Upper;
 
-impl VisitMut for Upper {
-    fn visit_inline(&mut self, x: &mut Inline) {
-        walk_inline(self, x);
+impl Filter for Upper {
+    type Order = Typewise;
+
+    fn inline(&mut self, x: &mut Inline, _: &mut Ctx<Typewise>) -> Option<Vec<Inline>> {
         if let Inline::Str(s) = x {
             *s = s.to_uppercase();
         }
+        None
     }
 }
 
 fn main() {
-    panir::filter(|doc, _format| doc.visit(&mut Upper));
+    panir::filter(|doc, format| panir::apply(doc, &mut Upper, format));
 }

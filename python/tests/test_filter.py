@@ -75,21 +75,28 @@ def test_most_specific_function_wins():
     assert seen == ["str", "Space"]
 
 
-def test_bottom_up_and_top_down():
+@pytest.mark.parametrize(
+    ("traverse", "expected"),
+    [
+        ("typewise", ["Str", "Emph", "Para"]),
+        ("bottomup", ["Str", "Emph", "Para"]),
+        ("topdown", ["Para", "Emph", "Str"]),
+    ],
+)
+def test_orders(traverse, expected):
     order = []
-    for top_down in (False, True):
-        f = Filter(top_down=top_down)
+    f = Filter(traverse=traverse)
 
-        @f.on(Emph, Str)
-        def visit(x):
-            order.append(type(x).__name__)
+    @f.on(Para, Emph, Str)
+    def visit(x):
+        order.append(type(x).__name__)
 
-        f(Pandoc(Para(Emph(Str("x")))))
-    assert order == ["Str", "Emph", "Emph", "Str"]
+    f(Pandoc(Para(Emph(Str("x")))))
+    assert order == expected
 
 
 def test_top_down_walks_the_replacement():
-    f = Filter(top_down=True)
+    f = Filter(traverse="topdown")
 
     @f.on(Emph)
     def unwrap(e):

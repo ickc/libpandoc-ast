@@ -61,13 +61,44 @@ list, a `Str` (`Para(["a", Emph("b")])`); where blocks go, `Plain` text.
 
 ## Filters
 
-An object of functions by constructor (`Str`, `Header`), type (`Inline`,
-`Block`, `MetaValue`) or product (`Cell`, `Pandoc`); a node gets its
-constructor's, or else its type's. A function returns nothing to keep the
-node (changed in place or not), a node to replace it, or an array to splice
-in its place (`[]` deletes it). Its second argument is the node's
-`Context`: `parent`, `index`, `next`/`prev`, `path`, `doc`, `format`.
-Bottom-up by default; `topDown: true` for the other way.
+Filters are written and run as pandoc's Lua filters, and tested against
+them: each scenario in [`corpus/filters/`](../corpus/filters/) is a Lua
+filter, and its TypeScript version must make of a document exactly what
+pandoc made.
+
+A filter is an object of functions by constructor (`Str`, `Header`), type
+(`Inline`, `Block`, `MetaValue`) or product (`Cell`, `Pandoc`); a node gets
+its constructor's, or else its type's. A function returns nothing to keep
+the node (changed in place or not), a node to replace it, or an array to
+splice in its place (`[]` deletes it). `Inlines` and `Blocks` get every
+list of them, and `Meta` the metadata; each returns a replacement, or
+nothing. The second argument is the `Context`: `parent`, `index`,
+`next`/`prev`, `path`, `doc`, `format`.
+
+`traverse` sets the order, one of the three filter frameworks use:
+
+- `"typewise"` (the default, as pandoc's Lua filters and Haskell's `walk`):
+  one walk per kind, each bottom-up: every `Inline`, then every list of
+  inlines, then every `Block`, then every list of blocks; then the other
+  nodes (`MetaValue`, `Cell`...), then `Meta`, then `Pandoc`. So every
+  inline is done before any block's function runs.
+- `"topdown"` (Lua's other order, and pandocfilters'): `Pandoc`, `Meta`,
+  then from the root down, a list before its elements and a node before its
+  children, which are walked in the node's replacement too, unless the
+  function calls `ctx.skipChildren()` (Lua's `return el, false`). The order
+  in which elements start, as a reader meets them: for counters and
+  nesting.
+- `"bottomup"` (panflute's): one walk, each node after its children, a list
+  after its elements, `Meta` after the metadata, `Pandoc` last. The fastest.
+
+Bottom-up and typewise, a function sees what is below it already filtered,
+and what it returns isn't walked again. Only top-down functions get
+`skipChildren`; elsewhere it is a type error, as the children came first.
+Filters whose functions don't depend on each other's calls make the same
+document typewise and bottom-up.
+
+An array of filters runs them one after the other, as a Lua filter file
+returning a list: `applyFilter(doc, [first, second])`.
 
 Also: `walk`, `stringify`, `inlines`/`blocks`, `toPlain`/`fromPlain` for metadata.
 

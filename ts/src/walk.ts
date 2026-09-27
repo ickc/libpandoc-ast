@@ -1,6 +1,6 @@
 /**
- * Walking a document, and filters: functions by node type, as in pandoc's
- * Lua filters.
+ * Walking a document, and filters: functions by node type, run as pandoc
+ * runs Lua filters.
  *
  *     const upper: Filter = {
  *       Str: (s) => { s.text = s.text.toUpperCase(); },
@@ -13,7 +13,10 @@
 import { ASTTypeError, formatPath, resolve, tables } from "./core.ts";
 import type { Path, TypeExpr } from "./core.ts";
 import { SCHEMA } from "./generated.ts";
-import type { Nodes, Pandoc, Sums } from "./generated.ts";
+import type { Block, Inline, Meta, Nodes, Pandoc, Sums } from "./generated.ts";
+
+/** Contexts whose function asked to skip the node's children. */
+const skipping = new WeakSet<Context>();
 
 /** Where a node is: its parent, its place in it, the document, the output format. */
 export class Context {
@@ -28,8 +31,10 @@ export class Context {
   format: string | undefined;
   #path: Path;
   #ancestors: unknown[];
+  #topDown: boolean;
 
-  constructor(frames: Frame[], doc: unknown, format: string | undefined) {
+  constructor(frames: Frame[], doc: unknown, format: string | undefined, topDown = false) {
+    this.#topDown = topDown;
     const last = frames[frames.length - 1];
     this.parent = last?.parent;
     this.field = last?.field;
@@ -75,6 +80,16 @@ export class Context {
   get prev(): unknown {
     return this.#sibling(-1);
   }
+
+  /**
+   * Don't walk this node's children, or its replacement's (Lua's
+   * `return el, false`). Only when walking top-down: bottom-up, they have
+   * been walked already.
+   */
+  skipChildren(): void {
+    if (!this.#topDown) throw new Error("skipChildren() needs traverse: \"topdown\" (otherwise the children were walked first)");
+    skipping.add(this);
+  }
 }
 
 interface Frame {
@@ -88,75 +103,112 @@ interface Frame {
 /** What a filter function returns: nothing to keep the node, a node to replace it, a list to splice. */
 export type Result<T> = void | undefined | null | T | T[];
 
-type Fn<N, R> = (node: N, ctx: Context) => Result<R>;
+/** The context a function gets when it can't skip children (bottom-up, the children came first). */
+export type WalkedContext = Omit<Context, "skipChildren">;
+
+type Fn<N, R, C> = (node: N, ctx: C) => Result<R>;
+type Straight<T, C> = (value: T, ctx: C) => T | void | undefined | null;
+
+/** A filter's functions, getting contexts of type `C`. */
+type Functions<C> = {
+  [K in keyof Nodes]?: Fn<Nodes[K], OwnerOf<K>, C>;
+} & {
+  [K in keyof Sums]?: Fn<Sums[K], Sums[K], C>;
+} & {
+  Inlines?: Straight<Inline[], C>;
+  Blocks?: Straight<Block[], C>;
+  Meta?: Straight<Meta, C>;
+};
 
 /**
  * Functions by constructor (`Str`, `Header`), sum type (`Inline`, `Block`,
- * `MetaValue`) or product (`Attr`, `Cell`, `Pandoc`). A node gets the one
- * for its constructor, or else its type's.
+ * `MetaValue`) or product (`Attr`, `Cell`, `Pandoc`); a node gets the one
+ * for its constructor, or else its type's. As in pandoc's Lua filters, also
+ * `Inlines` and `Blocks`, on every list of them, and `Meta`, on the
+ * document's metadata; each returns a replacement, or nothing to keep it.
+ *
+ * `traverse` is the order:
+ * - `"typewise"` (the default, as in Lua filters and Haskell's `walk`): one
+ *   walk per kind, each bottom-up: every `Inline`, then every list of
+ *   inlines (`Inlines`), then every `Block`, then `Blocks`; then every other
+ *   node (`MetaValue`, `Cell`, `Attr`..., which Lua has no functions for),
+ *   then `Meta`, then `Pandoc`.
+ * - `"topdown"` (as Lua's, and pandocfilters): `Pandoc`, `Meta`, then
+ *   depth-first from the root, a list before its elements and a node before
+ *   its children, which are walked in its replacement too;
+ *   `ctx.skipChildren()` skips what is below.
+ * - `"bottomup"` (as panflute): one walk, each node after its children, a
+ *   list after its elements, `Meta` after the metadata, `Pandoc` last.
+ *
+ * Only top-down functions get `skipChildren`: bottom-up, the children came
+ * first.
  */
-export type Filter = {
-  [K in keyof Nodes]?: Fn<Nodes[K], OwnerOf<K>>;
-} & {
-  [K in keyof Sums]?: Fn<Sums[K], Sums[K]>;
-} & {
-  /** Visit a node before its children (default: after). */
-  topDown?: boolean;
-};
+export type Filter =
+  | (Functions<WalkedContext> & { traverse?: "typewise" | "bottomup" })
+  | (Functions<Context> & { traverse: "topdown" });
 
 type OwnerOf<K extends keyof Nodes> = {
   [S in keyof Sums]: Nodes[K] extends Sums[S] ? Sums[S] : never;
 }[keyof Sums] extends infer U ? ([U] extends [never] ? Nodes[K] : U) : never;
 
 type Action = (node: unknown, ctx: Context, type: string) => unknown;
+/** As `Action`, making the context only if it needs it (`ctx()`). */
+type LazyAction = (node: unknown, ctx: () => Context, type: string) => unknown;
+/** Called on a list of nodes of type `type`; returns its replacement, or nothing. */
+type ListAction = (list: unknown[], ctx: () => Context, type: string) => unknown;
 
 class Walker {
   frames: Frame[] = [];
-  action: Action;
+  action: LazyAction;
+  listAction: ListAction | undefined;
   topDown: boolean;
   doc: unknown;
   format: string | undefined;
 
-  constructor(action: Action, topDown: boolean, doc: unknown, format: string | undefined) {
+  constructor(action: LazyAction, topDown: boolean, doc: unknown, format: string | undefined,
+              listAction?: ListAction) {
     this.action = action;
+    this.listAction = listAction;
     this.topDown = topDown;
     this.doc = doc;
     this.format = format;
   }
 
-  call(node: unknown, type: string): unknown {
-    return this.action(node, new Context(this.frames, this.doc, this.format), type);
+  /** Call `fn` with a context made on demand; returns its result, and whether it skips the children. */
+  #call(fn: (ctx: () => Context) => unknown): [unknown, boolean] {
+    let ctx: Context | undefined;
+    const r = fn(() => (ctx ??= new Context(this.frames, this.doc, this.format, this.topDown)));
+    return [r, ctx !== undefined && skipping.has(ctx)];
   }
 
   /** A node in a position holding one node; returns it or its replacement. */
   one(node: unknown, type: string, where: string): unknown {
     if (this.topDown) {
-      node = single(this.call(node, type), node, where);
-      this.children(node, type);
+      const [r, skip] = this.#call((ctx) => this.action(node, ctx, type));
+      node = single(r, node, where);
+      if (!skip) this.children(node, type);
       return node;
     }
     this.children(node, type);
-    return single(this.call(node, type), node, where);
+    return single(this.#call((ctx) => this.action(node, ctx, type))[0], node, where);
   }
 
-  /** The nodes of a list: each may be replaced, deleted or spliced. */
+  /** The nodes of a list: each may be replaced, deleted or spliced; then (or first, top-down) the list. */
   many(list: unknown[], type: string, parent: unknown, field: string, outer: (string | number)[]): void {
-    const frame: Frame = { parent, field, outer, container: list, index: 0 };
+    const frame: Frame = { parent, field, outer, container: undefined, index: undefined };
+    if (this.topDown && this.#wholeList(list, type, frame)) return;
+    frame.container = list;
+    frame.index = 0;
     this.frames.push(frame);
     try {
       let i = 0;
       while (i < list.length) {
         frame.index = i;
         if (!this.topDown) this.children(list[i], type);
-        const r = this.call(list[i], type);
-        if (r === undefined || r === null) {
-          if (this.topDown) this.children(list[i], type);
-          i++;
-          continue;
-        }
-        const items = Array.isArray(r) ? r : [r];
-        list.splice(i, 1, ...items);
-        if (this.topDown) {
+        const [r, skip] = this.#call((ctx) => this.action(list[i], ctx, type));
+        const items = r === undefined || r === null ? [list[i]] : Array.isArray(r) ? r : [r];
+        if (items.length !== 1 || items[0] !== list[i]) list.splice(i, 1, ...items);
+        if (this.topDown && !skip) {
           for (let k = 0; k < items.length; k++) {
             frame.index = i + k;
             this.children(list[i + k], type);
@@ -164,6 +216,26 @@ class Walker {
         }
         i += items.length;
       }
+    } finally {
+      this.frames.pop();
+    }
+    if (!this.topDown) this.#wholeList(list, type, { ...frame, container: undefined, index: undefined });
+  }
+
+  /** The list function on `list`, replacing its contents in place; whether it skips the elements. */
+  #wholeList(list: unknown[], type: string, frame: Frame): boolean {
+    const listAction = this.listAction;
+    if (!listAction) return false;
+    this.frames.push(frame);
+    try {
+      const [r, skip] = this.#call((ctx) => listAction(list, ctx, type));
+      if (r !== undefined && r !== null && r !== list) {
+        if (!Array.isArray(r)) {
+          throw new ASTTypeError(`${frame.field}${formatPath(frame.outer)}`, `a list of ${type}s`, typeof r);
+        }
+        list.splice(0, list.length, ...r);
+      }
+      return skip;
     } finally {
       this.frames.pop();
     }
@@ -249,27 +321,136 @@ function single(r: unknown, node: unknown, where: string): unknown {
  */
 export function walk(node: unknown, action: Action,
                      opts: { type?: string; topDown?: boolean; format?: string } = {}): unknown {
-  const w = new Walker(action, opts.topDown ?? false, node, opts.format);
+  const w = new Walker((n, ctx, t) => action(n, ctx(), t), opts.topDown ?? false, node, opts.format);
   const type = opts.type ?? SCHEMA.root;
   return w.one(node, type, type);
 }
 
-/** Apply a filter to a document, in place; returns it (or its replacement). */
-export function applyFilter(doc: Pandoc, filter: Filter, format?: string): Pandoc {
-  const fns = filter as Record<string, Fn<unknown, unknown> | undefined>;
-  const action: Action = (node, ctx, type) => {
-    const tag = (node as { t?: unknown }).t;
-    const fn = (typeof tag === "string" ? fns[tag] : undefined) ?? fns[type];
-    if (!fn) return undefined;
-    try {
-      return fn(node, ctx);
-    } catch (e) {
-      if (e instanceof Error && !(e as { noted?: boolean }).noted) {
-        e.message += `\n  in filter function ${fn.name || "(anonymous)"}, on the ${typeof tag === "string" ? tag : type} at ${ctx.where}`;
-        (e as { noted?: boolean }).noted = true;
-      }
-      throw e;
+type Fns = Record<string, ((x: unknown, ctx: Context) => unknown) | undefined>;
+
+/** `fn(x, ctx)`; an error from it says which function it was, and where. */
+function callNoting(fn: (x: unknown, ctx: Context) => unknown, what: string, x: unknown, ctx: Context): unknown {
+  try {
+    return fn(x, ctx);
+  } catch (e) {
+    if (e instanceof Error && !(e as { noted?: boolean }).noted) {
+      e.message += `\n  in filter function ${fn.name || "(anonymous)"}, on the ${what} at ${ctx.where}`;
+      (e as { noted?: boolean }).noted = true;
     }
+    throw e;
+  }
+}
+
+/** The function for a node: its constructor's, else its type's; only for types `only` accepts. */
+function nodeAction(fns: Fns, only: (type: string) => boolean): LazyAction {
+  return (node, ctx, type) => {
+    if (!only(type)) return undefined;
+    const tag = (node as { t?: unknown }).t;
+    const what = typeof tag === "string" ? tag : type;
+    const fn = fns[what] ?? fns[type];
+    return fn ? callNoting(fn, what, node, ctx()) : undefined;
   };
-  return walk(doc, action, { topDown: filter.topDown, format }) as Pandoc;
+}
+
+/** The `Inlines` or `Blocks` function, for lists of the types `only` accepts. */
+function listAction(fns: Fns, only: (type: string) => boolean): ListAction {
+  return (list, ctx, type) => {
+    const fn = only(type) ? fns[`${type}s`] : undefined;
+    return fn ? callNoting(fn, `${type}s`, list, ctx()) : undefined;
+  };
+}
+
+/** A function called on one value (`Meta`, `Pandoc`): its result or `value`, and whether it skips. */
+function straight(fns: Fns, name: string, value: unknown, frames: Frame[], doc: unknown,
+                  format: string | undefined, topDown: boolean): [unknown, boolean] {
+  const fn = fns[name];
+  if (!fn) return [value, false];
+  const ctx = new Context(frames, doc, format, topDown);
+  const r = callNoting(fn, name, value, ctx);
+  return [r === undefined || r === null ? value : r, skipping.has(ctx)];
+}
+
+const INLINE = (t: string) => t === "Inline";
+const BLOCK = (t: string) => t === "Block";
+const LISTS = (t: string) => t === "Inline" || t === "Block";
+const OTHER = (t: string) => t !== "Inline" && t !== "Block";
+const NONE = () => false;
+
+function applyOne(doc: Pandoc, filter: Filter, format: string | undefined): Pandoc {
+  const fns = filter as unknown as Fns;
+  const root = SCHEMA.root;
+  const traverse = filter.traverse ?? "typewise";
+  if (traverse !== "typewise" && traverse !== "topdown" && traverse !== "bottomup") {
+    throw new Error(`traverse: expected "typewise", "topdown" or "bottomup", got ${JSON.stringify(traverse)}`);
+  }
+  const topDown = traverse === "topdown";
+  const meta = (d: Pandoc): [unknown, boolean] => straight(
+    fns, "Meta", d.meta, [{ parent: d, field: "meta", outer: [], container: undefined, index: undefined }],
+    d, format, topDown);
+  const fields = (tables().types.get(root) as { fields: { name: string; type: TypeExpr }[] }).fields;
+  const obj = doc as unknown as Record<string, unknown>;
+  const all = () => new Walker(nodeAction(fns, () => true), topDown, doc, format, listAction(fns, LISTS));
+  if (topDown) {
+    const [d, skip] = straight(fns, root, doc, [], doc, format, true);
+    doc = d as Pandoc;
+    if (skip) return doc;
+    const [m, skipMeta] = meta(doc);
+    doc.meta = m as Meta;
+    const w = all();
+    for (const f of fields) {
+      if (!(skipMeta && f.name === "meta")) obj[f.name] = w.value(obj[f.name], f.type, doc, f.name, []);
+    }
+    return doc;
+  }
+  if (traverse === "bottomup") {
+    const w = all();
+    for (const f of fields) {
+      obj[f.name] = w.value(obj[f.name], f.type, doc, f.name, []);
+      if (f.name === "meta") doc.meta = meta(doc)[0] as Meta;
+    }
+    return straight(fns, root, doc, [], doc, format, false)[0] as Pandoc;
+  }
+  const passes: [LazyAction, ListAction | undefined, boolean][] = [
+    [nodeAction(fns, INLINE), undefined, has(fns, "Inline")],
+    [nodeAction(fns, NONE), listAction(fns, INLINE), fns.Inlines !== undefined],
+    [nodeAction(fns, BLOCK), undefined, has(fns, "Block")],
+    [nodeAction(fns, NONE), listAction(fns, BLOCK), fns.Blocks !== undefined],
+    [nodeAction(fns, OTHER), undefined, hasOther(fns)],
+  ];
+  for (const [action, lists, needed] of passes) {
+    if (needed) new Walker(action, false, doc, format, lists).children(doc, root);
+  }
+  doc.meta = meta(doc)[0] as Meta;
+  return straight(fns, root, doc, [], doc, format, false)[0] as Pandoc;
+}
+
+/** Whether `fns` has a function for the sum `sum` or one of its constructors. */
+function has(fns: Fns, sum: string): boolean {
+  const decl = tables().types.get(sum) as { constructors?: { name: string }[] };
+  return fns[sum] !== undefined || (decl.constructors ?? []).some((c) => fns[c.name] !== undefined);
+}
+
+/** Whether `fns` has a function for a node that isn't an Inline, a Block or the document. */
+function hasOther(fns: Fns): boolean {
+  for (const [name, decl] of tables().types) {
+    if (name === "Inline" || name === "Block" || name === SCHEMA.root) continue;
+    if (decl.kind === "sum" ? has(fns, name) : decl.kind === "product" && fns[name] !== undefined) return true;
+  }
+  return false;
+}
+
+/**
+ * Apply a filter to a document, in place, as pandoc applies a Lua filter;
+ * returns it (or its replacement). A list of filters is applied one after
+ * the other, as a Lua filter file returning a list.
+ */
+export function applyFilter(doc: Pandoc, filter: Filter, format?: string): Pandoc;
+export function applyFilter(doc: Pandoc, filters: readonly Filter[], format?: string): Pandoc;
+export function applyFilter(doc: Pandoc, filter: Filter | readonly Filter[], format?: string): Pandoc {
+  for (const f of isFilterList(filter) ? filter : [filter]) doc = applyOne(doc, f, format);
+  return doc;
+}
+
+function isFilterList(f: Filter | readonly Filter[]): f is readonly Filter[] {
+  return Array.isArray(f);
 }

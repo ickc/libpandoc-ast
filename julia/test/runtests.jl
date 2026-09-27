@@ -101,12 +101,16 @@ doc() = Pandoc(
     walk!(f, Pandoc(Para(Str("a"), Space())))
     @test seen == ["str", "Space"]
 
-    for topdown in (false, true)
+    for (traverse, expected) in [(:typewise, ["Str", "Emph", "Para"]), (:bottomup, ["Str", "Emph", "Para"]),
+                                 (:topdown, ["Para", "Emph", "Str"])]
         order = String[]
-        g(x::Union{Emph, Str}) = (push!(order, string(nameof(typeof(x)))); nothing)
-        walk!(g, Pandoc(Para(Emph(Str("x")))); topdown)
-        @test order == (topdown ? ["Emph", "Str"] : ["Str", "Emph"])
+        g(x::Union{Para, Emph, Str}) = (push!(order, string(nameof(typeof(x)))); nothing)
+        walk!(g, Pandoc(Para(Emph(Str("x")))); traverse)
+        @test order == expected
     end
+    @test_throws ArgumentError walk!(identity, doc(); traverse = :inside_out)
+    skipper(s::Str, ctx) = (skip_children!(ctx); nothing)
+    @test_throws ArgumentError walk!(skipper, doc())
 
     found = Ref{Any}()
     where_(s::Str, ctx) = (s.text == "b" && (found[] = ctx); nothing)
@@ -122,3 +126,4 @@ end
     q = Para(Str("a"), Space(), Quoted(DoubleQuote, Str("q")), Code("c"), Note(Para(Str("n"))))
     @test stringify(q) == "a “q”c"
 end
+include("filters.jl")

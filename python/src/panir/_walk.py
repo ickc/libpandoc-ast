@@ -40,10 +40,23 @@ class Context:
     fragment as that run reads its input.
     """
 
-    __slots__ = ("_frames", "container", "conversion", "doc", "field", "format", "index", "parent")
+    __slots__ = (
+        "_frames",
+        "_skip",
+        "_top_down",
+        "container",
+        "conversion",
+        "doc",
+        "field",
+        "format",
+        "index",
+        "parent",
+    )
 
-    def __init__(self, frames: tuple, doc: Any, conversion: Conversion) -> None:
-        self._frames = frames
+    def __init__(
+        self, frames: tuple, doc: Any, conversion: Conversion, top_down: bool = False
+    ) -> None:
+        self._frames, self._top_down, self._skip = frames, top_down, False
         self.doc, self.conversion, self.format = doc, conversion, conversion.format
         if frames:
             self.parent, self.field, self.container, self.index = frames[-1]
@@ -87,6 +100,17 @@ class Context:
     def prev(self) -> Any:
         return self._sibling(-1)
 
+    def skip_children(self) -> None:
+        """Don't walk this node's children, or its replacement's (Lua's
+        ``return el, false``). Only top-down: otherwise the children were
+        walked first."""
+        if not self._top_down:
+            raise RuntimeError(
+                'skip_children() needs traverse="topdown" '
+                "(otherwise the children were walked first)"
+            )
+        self._skip = True
+
     def __repr__(self) -> str:
         parent = type(self.parent).__name__ if self.parent is not None else None
         return f"<Context at {self.where}, parent {parent}>"
@@ -101,6 +125,8 @@ def _walk_fields(cls: type[Node]) -> list[tuple[str, _Spec]]:
 
 
 Action = Callable[[Node, Context], Any]
+# on a list of nodes of the given class: its replacement, or None
+ListAction = Callable[[list, type, Context], Any]
 
 
 class _Walker:
@@ -111,24 +137,35 @@ class _Walker:
         doc: Any,
         conversion: Conversion,
         wants: Callable[[type], bool],
+        lists: ListAction | None = None,
+        wants_list: Callable[[type], bool] | None = None,
     ) -> None:
         self.action, self.top_down = action, top_down
         self.doc, self.conversion, self.wants = doc, conversion, wants
+        self.lists, self.wants_list = lists, wants_list or (lambda ty: False)
         self.frames: list = []
 
-    def call(self, node: Node) -> Any:
-        return self.action(node, Context(tuple(self.frames), self.doc, self.conversion))
+    def context(self) -> Context:
+        return Context(tuple(self.frames), self.doc, self.conversion, self.top_down)
+
+    def call(self, node: Node) -> tuple[Any, bool]:
+        """The action on ``node``: its result, and whether to skip the children."""
+        ctx = self.context()
+        return self.action(node, ctx), ctx._skip
 
     # a node in a position that holds one node
     def one(self, node: Node, where: str) -> Node:
         if self.top_down:
+            skip = False
             if self.wants(type(node)):
-                node = self.single(self.call(node), node, where)
-            self.children(node)
+                result, skip = self.call(node)
+                node = self.single(result, node, where)
+            if not skip:
+                self.children(node)
             return node
         self.children(node)
         if self.wants(type(node)):
-            node = self.single(self.call(node), node, where)
+            node = self.single(self.call(node)[0], node, where)
         return node
 
     @staticmethod
@@ -139,10 +176,32 @@ class _Walker:
             return result
         raise ASTTypeError(where, "one node (this position holds one)", _describe(result))
 
-    # the nodes in a list: each may be replaced, deleted, or spliced
+    def whole(
+        self, lst: list, spec: _ListSpec, parent: Node, field: str | None, key: tuple
+    ) -> bool:
+        """The list function on ``lst``, replacing its contents; whether to skip its elements."""
+        cls = spec.item.cls  # type: ignore[attr-defined]
+        if self.lists is None or not self.wants_list(cls):
+            return False
+        self.frames.append([parent, field, None, key or None])
+        try:
+            ctx = self.context()
+            result = self.lists(lst, cls, ctx)
+            if result is not None and result is not lst:
+                if isinstance(result, (Node, str)) or not isinstance(result, (list, tuple)):
+                    raise ASTTypeError(spec.label, f"a list of {cls.__name__}s", _describe(result))
+                lst[:] = result  # checked by NodeList
+            return ctx._skip
+        finally:
+            self.frames.pop()
+
+    # the nodes in a list: each may be replaced, deleted, or spliced; then
+    # (or first, top-down) the list
     def many(
         self, lst: list, spec: _ListSpec, parent: Node, field: str | None, outer: tuple
     ) -> None:
+        if self.top_down and self.whole(lst, spec, parent, field, outer):
+            return
         frame = [parent, field, lst, None]
         self.frames.append(frame)
         try:
@@ -153,7 +212,10 @@ class _Walker:
                 if not self.top_down:
                     self.children(node)
                 if self.wants(type(node)):
-                    result = self.call(node)
+                    result, skip = self.call(node)
+                    if result is None and skip:
+                        i += 1
+                        continue
                     if result is not None:
                         if isinstance(result, Node):
                             result = [result]
@@ -166,7 +228,7 @@ class _Walker:
                                 _describe(result),
                             )
                         lst[i : i + 1] = result  # checked by NodeList
-                        if not self.top_down:
+                        if not self.top_down or skip:
                             i += len(result)
                             continue
                         for _ in range(len(result)):
@@ -179,6 +241,8 @@ class _Walker:
                 i += 1
         finally:
             self.frames.pop()
+        if not self.top_down:
+            self.whole(lst, spec, parent, field, outer)
 
     def value(self, value: Any, spec: _Spec, parent: Node, field: str | None, key: tuple) -> Any:
         """Walk a field's value; returns it, or its replacement."""
@@ -209,13 +273,13 @@ class _Walker:
                     try:
                         if not self.top_down:
                             self.children(x)
-                        result = self.call(x) if self.wants(type(x)) else None
+                        result, skip = self.call(x) if self.wants(type(x)) else (None, False)
                         if isinstance(result, list) and not result:
                             del value[k]
                             continue
                         x = self.single(result, x, f"{spec.label}[{k!r}]")
                         value[k] = x
-                        if self.top_down:
+                        if self.top_down and not skip:
                             self.children(x)
                     finally:
                         self.frames.pop()

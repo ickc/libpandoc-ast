@@ -30,6 +30,8 @@ jobs:
           components: rustfmt
       - name: Regenerate
         run: pixi run bash scripts/generate.sh
+      - name: Regenerate the filter corpus (pandoc's Lua filters)
+        run: pixi run bash scripts/filters-corpus.sh
       - name: Generated files are current
         run: git diff --exit-code
 

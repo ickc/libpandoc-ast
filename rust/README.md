@@ -1,27 +1,52 @@
 # panir (Rust)
 
 pandoc's document AST, generated from pandoc-types: types that serde
-encodes as pandoc's JSON, and a `VisitMut` trait to change documents.
+encodes as pandoc's JSON, filters run as pandoc runs Lua filters, and a
+`VisitMut` trait for any other walk.
 
 ```rust
-use panir::{walk_inline, Inline, VisitMut};
+use panir::{Ctx, Filter, Inline, Typewise};
 
 struct Upper;
 
-impl VisitMut for Upper {
-    fn visit_inline(&mut self, x: &mut Inline) {
-        walk_inline(self, x); // children first
+impl Filter for Upper {
+    type Order = Typewise;
+
+    fn inline(&mut self, x: &mut Inline, _: &mut Ctx<Typewise>) -> Option<Vec<Inline>> {
         if let Inline::Str(s) = x {
             *s = s.to_uppercase();
         }
+        None // keep it, changed in place; Some(vec![...]) splices, Some(vec![]) deletes
     }
 }
 
 fn main() {
     // pandoc --filter ./upper
-    panir::filter(|doc, _format| doc.visit(&mut Upper));
+    panir::filter(|doc, format| panir::apply(doc, &mut Upper, format));
 }
 ```
+
+## Filters
+
+A `Filter` has pandoc's Lua filter functions, each a method with a default
+that does nothing: `inline` and `block` (a `match` on the constructor),
+`inlines` and `blocks` (every list of them), `meta`, `pandoc`. `Order` is
+one of the three orders filter frameworks use:
+
+- `Typewise` (as pandoc's Lua filters by default, and Haskell's `walk`): one
+  walk per kind, each bottom-up: every inline, then every list of inlines,
+  then every block, then every list of blocks, then `meta`, then `pandoc`.
+- `Topdown` (Lua's other order, and pandocfilters'): `pandoc`, `meta`, then
+  a node before its children, which are walked in its replacement too,
+  unless the method calls `ctx.skip_children()`, which only a
+  `Ctx<Topdown>` has.
+- `Bottomup` (panflute's): one walk, each node after its children.
+
+They are checked against pandoc's Lua filters, with the scenarios in
+[`corpus/filters/`](../corpus/filters/). For other nodes (`Cell`, `Attr`,
+...) or any other walk, `VisitMut`.
+
+## Types and `VisitMut`
 
 - A sum type is an enum: a constructor without fields is a unit variant
   (`Inline::Space`), with one field it holds the value

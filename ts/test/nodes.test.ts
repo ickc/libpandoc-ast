@@ -89,15 +89,16 @@ test("the constructor's function wins over its type's", () => {
   assert.deepEqual(seen, ["str", "Space"]);
 });
 
-test("bottom-up and top-down", () => {
-  for (const topDown of [false, true]) {
+test("typewise and topdown", () => {
+  for (const traverse of ["typewise", "topdown"] as const) {
     const order: string[] = [];
     applyFilter(Pandoc([Para([Emph([Str("x")])])]), {
-      topDown,
+      traverse,
+      Para: () => { order.push("Para"); },
       Emph: () => { order.push("Emph"); },
       Str: () => { order.push("Str"); },
     });
-    assert.deepEqual(order, topDown ? ["Emph", "Str"] : ["Str", "Emph"]);
+    assert.deepEqual(order, traverse === "topdown" ? ["Para", "Emph", "Str"] : ["Str", "Emph", "Para"]);
   }
 });
 
@@ -123,6 +124,26 @@ test("context", () => {
 test("errors in filter functions say where", () => {
   assert.throws(() => applyFilter(doc(), { Header: function broken() { throw new Error("boom"); } }),
                 /boom\n {2}in filter function broken, on the Header at blocks\[0\]/);
+});
+
+test("misused filters say so", () => {
+  for (const traverse of ["typewise", "bottomup"] as const) {
+    // a type error (only top-down functions can skip), and at run time, for JavaScript
+    // @ts-expect-error: skipChildren isn't on a WalkedContext
+    assert.throws(() => applyFilter(doc(), { traverse, Str: (_s, ctx) => { ctx.skipChildren(); } }),
+                  /skipChildren\(\) needs traverse: "topdown"[^]*on the Str at blocks\[0\]\.content\[0\]/);
+  }
+  assert.throws(() => applyFilter(doc(), { Inlines: () => Str("x") as never }),
+                (e: unknown) => e instanceof ASTTypeError && /a list of Inlines/.test(e.message));
+  assert.throws(() => applyFilter(doc(), { traverse: "inside-out" as never }),
+                /traverse: expected "typewise", "topdown" or "bottomup"/);
+  assert.throws(() => applyFilter(doc(), { Blocks: function lists() { throw new Error("boom"); } }),
+                /boom\n {2}in filter function lists, on the Blocks at blocks\[1\]\.content\[3\]\.content/);
+});
+
+test("a list of filters runs one after the other", () => {
+  const d = applyFilter(doc(), [{ Str: (s) => Str(`${s.text}1`) }, { Str: (s) => Str(`${s.text}2`) }]);
+  assert.equal(stringify(d.blocks[0]), "Title12");
 });
 
 test("JSON text round trip, and serialize checks", () => {
