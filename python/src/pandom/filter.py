@@ -24,6 +24,7 @@ import io
 import json
 import sys
 from collections.abc import Callable, Iterable
+from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from ._core import Node, add_note
@@ -36,10 +37,14 @@ if TYPE_CHECKING:
 
 __all__ = ["Filter", "run"]
 
-# Set by a program that runs filter scripts in its own process (pandocpy):
-# a script's ``f.main()`` then hands ``f`` to it, instead of reading stdin
-# and writing stdout, so that it runs on the program's own document objects.
-handoff: Callable[[Filter], None] | None = None
+# Set by a program that runs filter scripts in its own process (pandocpy,
+# libpandoc): a script's ``f.main()`` then hands ``f`` to it, instead of
+# reading stdin and writing stdout, so that it runs on the program's own
+# document objects. Per thread (a context variable), so that scripts may run
+# in several threads at once.
+handoff: ContextVar[Callable[[Filter], None] | None] = ContextVar(
+    "pandom_filter_handoff", default=None
+)
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -152,8 +157,9 @@ class Filter:
         pandoc passes the output format as the first argument, and the
         reader's options in the environment.
         """
-        if handoff is not None:
-            handoff(self)  # a runner running this script in its own process
+        take = handoff.get()
+        if take is not None:
+            take(self)  # a program running this script in its own process
             return
         conversion = Conversion.from_environment(argv)
         stdin = io.TextIOWrapper(sys.stdin.buffer, encoding="utf-8")
