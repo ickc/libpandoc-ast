@@ -1,0 +1,94 @@
+# Publish panir to PyPI, npm and crates.io when a tag vVERSION is pushed
+# (VERSION as scripts/version.py prints it). Each registry trusts this
+# workflow (trusted publishing, OpenID Connect): no tokens are stored. The
+# setup, and Julia's registration, are in RELEASING.md.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      prerelease: ${{ steps.v.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: The tag is the version in every language
+        id: v
+        run: |
+          version=$(python3 scripts/version.py)
+          [ "v$version" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME, but the packages are $version"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          case $version in *-*) echo "prerelease=true" ;; *) echo "prerelease=false" ;; esac >> "$GITHUB_OUTPUT"
+
+  pypi:
+    needs: check
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+      - run: uv build python -o dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  npm:
+    needs: check
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      id-token: write
+    defaults:
+      run:
+        working-directory: ts
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      # trusted publishing needs npm 11.5 or later
+      - run: npm install -g npm@latest
+      - run: npm ci
+      # a prerelease goes out as the dist-tag "next", so that `npm install
+      # panir` keeps giving the latest release
+      - run: npm publish --provenance --access public ${{ needs.check.outputs.prerelease == 'true' && '--tag next' || '' }}
+
+  crates:
+    needs: check
+    runs-on: ubuntu-latest
+    environment: crates
+    permissions:
+      id-token: write
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: rust-lang/crates-io-auth-action@v1
+        id: auth
+      - run: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+
+  github:
+    needs: [check, pypi, npm, crates]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - name: A GitHub release for the tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --generate-notes --title "panir ${{ needs.check.outputs.version }}" \
+            ${{ needs.check.outputs.prerelease == 'true' && '--prerelease' || '' }}

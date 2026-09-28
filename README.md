@@ -13,7 +13,7 @@ libpandoc's bindings, unchanged.
 |---|---|---|
 | Python | working | [`python/`](python/): `panir` on PyPI (not yet published) |
 | Rust | prototype | [`rust/`](rust/): crate `panir` |
-| TypeScript | prototype | [`ts/`](ts/): npm `panir` (`panir` is taken), browser and Node.js |
+| TypeScript | prototype | [`ts/`](ts/): npm `panir`, browser and Node.js |
 | Julia | prototype | [`julia/`](julia/): `Panir.jl` |
 
 Each follows its language's idioms, from the same schema:

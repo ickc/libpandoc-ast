@@ -153,3 +153,31 @@ jobs:
           out=$(echo 'some *text*' | JULIA_PROJECT=$PWD/julia pixi run pandoc --filter julia/examples/upper.jl -t plain)
           echo "$out"
           [ "$out" = "SOME TEXT" ]
+
+  # What the registries would get, on every push: one version everywhere,
+  # and each package as it would be published (nothing is published here;
+  # see release.yml and RELEASING.md)
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: One version in every language
+        run: python3 scripts/version.py
+      - uses: astral-sh/setup-uv@v6
+      - name: Python (sdist and wheel, twine check)
+        run: |
+          uv build python -o dist/python
+          uvx twine check --strict dist/python/*
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: npm (pack, install the tarball, import it)
+        run: |
+          cd ts && npm ci && npm pack --pack-destination "$RUNNER_TEMP"
+          mkdir -p "$RUNNER_TEMP/try" && cd "$RUNNER_TEMP/try"
+          npm init -y >/dev/null && npm install "$RUNNER_TEMP"/panir-*.tgz
+          node --input-type=module -e 'import { Str, serialize, parse } from "panir"; import { runFilter } from "panir/node"; console.log(Str("ok").text, typeof runFilter)'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: crates.io (publish --dry-run)
+        working-directory: rust
+        run: cargo publish --dry-run
