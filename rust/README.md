@@ -26,6 +26,11 @@ fn main() {
 }
 ```
 
+`panir::filter_with` and `panir::apply_with` pass the whole `Conversion`
+instead of the format: the formats with extensions and the reader's options
+where pandoc (or libpandoc) tells them, as in Python. A function finds it in
+`ctx.conversion()`.
+
 ## Filters
 
 A `Filter` has pandoc's Lua filter functions, each a method with a default
