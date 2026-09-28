@@ -12,13 +12,14 @@
 
 import { ASTTypeError, formatPath, resolve, tables } from "./core.ts";
 import type { Path, TypeExpr } from "./core.ts";
+import { Conversion } from "./conversion.ts";
 import { SCHEMA } from "./generated.ts";
 import type { Block, Inline, Meta, Nodes, Pandoc, Sums } from "./generated.ts";
 
 /** Contexts whose function asked to skip the node's children. */
 const skipping = new WeakSet<Context>();
 
-/** Where a node is: its parent, its place in it, the document, the output format. */
+/** Where a node is: its parent, its place in it, the document, the conversion. */
 export class Context {
   /** The node whose field holds this one. */
   parent: unknown;
@@ -28,12 +29,15 @@ export class Context {
   container: unknown[] | Record<string, unknown> | undefined;
   index: number | string | undefined;
   doc: unknown;
+  /** The pandoc conversion the filter runs in. */
+  conversion: Conversion;
+  /** Its output format's name (what pandoc passes a JSON filter), e.g. "html5". */
   format: string | undefined;
   #path: Path;
   #ancestors: unknown[];
   #topDown: boolean;
 
-  constructor(frames: Frame[], doc: unknown, format: string | undefined, topDown = false) {
+  constructor(frames: Frame[], doc: unknown, conversion: Conversion, topDown = false) {
     this.#topDown = topDown;
     const last = frames[frames.length - 1];
     this.parent = last?.parent;
@@ -41,7 +45,8 @@ export class Context {
     this.container = last?.container;
     this.index = last?.index;
     this.doc = doc;
-    this.format = format;
+    this.conversion = conversion;
+    this.format = conversion.format;
     this.#path = frames.flatMap((f) => [
       ...(f.field === undefined ? [] : [f.field]),
       ...f.outer,
@@ -163,21 +168,21 @@ class Walker {
   listAction: ListAction | undefined;
   topDown: boolean;
   doc: unknown;
-  format: string | undefined;
+  conversion: Conversion;
 
-  constructor(action: LazyAction, topDown: boolean, doc: unknown, format: string | undefined,
+  constructor(action: LazyAction, topDown: boolean, doc: unknown, conversion: Conversion,
               listAction?: ListAction) {
     this.action = action;
     this.listAction = listAction;
     this.topDown = topDown;
     this.doc = doc;
-    this.format = format;
+    this.conversion = conversion;
   }
 
   /** Call `fn` with a context made on demand; returns its result, and whether it skips the children. */
   #call(fn: (ctx: () => Context) => unknown): [unknown, boolean] {
     let ctx: Context | undefined;
-    const r = fn(() => (ctx ??= new Context(this.frames, this.doc, this.format, this.topDown)));
+    const r = fn(() => (ctx ??= new Context(this.frames, this.doc, this.conversion, this.topDown)));
     return [r, ctx !== undefined && skipping.has(ctx)];
   }
 
@@ -320,8 +325,8 @@ function single(r: unknown, node: unknown, where: string): unknown {
  * (default: a document).
  */
 export function walk(node: unknown, action: Action,
-                     opts: { type?: string; topDown?: boolean; format?: string } = {}): unknown {
-  const w = new Walker((n, ctx, t) => action(n, ctx(), t), opts.topDown ?? false, node, opts.format);
+                     opts: { type?: string; topDown?: boolean; format?: string | Conversion } = {}): unknown {
+  const w = new Walker((n, ctx, t) => action(n, ctx(), t), opts.topDown ?? false, node, toConversion(opts.format));
   const type = opts.type ?? SCHEMA.root;
   return w.one(node, type, type);
 }
@@ -362,10 +367,10 @@ function listAction(fns: Fns, only: (type: string) => boolean): ListAction {
 
 /** A function called on one value (`Meta`, `Pandoc`): its result or `value`, and whether it skips. */
 function straight(fns: Fns, name: string, value: unknown, frames: Frame[], doc: unknown,
-                  format: string | undefined, topDown: boolean): [unknown, boolean] {
+                  conversion: Conversion, topDown: boolean): [unknown, boolean] {
   const fn = fns[name];
   if (!fn) return [value, false];
-  const ctx = new Context(frames, doc, format, topDown);
+  const ctx = new Context(frames, doc, conversion, topDown);
   const r = callNoting(fn, name, value, ctx);
   return [r === undefined || r === null ? value : r, skipping.has(ctx)];
 }
@@ -376,7 +381,7 @@ const LISTS = (t: string) => t === "Inline" || t === "Block";
 const OTHER = (t: string) => t !== "Inline" && t !== "Block";
 const NONE = () => false;
 
-function applyOne(doc: Pandoc, filter: Filter, format: string | undefined): Pandoc {
+function applyOne(doc: Pandoc, filter: Filter, conversion: Conversion): Pandoc {
   const fns = filter as unknown as Fns;
   const root = SCHEMA.root;
   const traverse = filter.traverse ?? "typewise";
@@ -386,12 +391,12 @@ function applyOne(doc: Pandoc, filter: Filter, format: string | undefined): Pand
   const topDown = traverse === "topdown";
   const meta = (d: Pandoc): [unknown, boolean] => straight(
     fns, "Meta", d.meta, [{ parent: d, field: "meta", outer: [], container: undefined, index: undefined }],
-    d, format, topDown);
+    d, conversion, topDown);
   const fields = (tables().types.get(root) as { fields: { name: string; type: TypeExpr }[] }).fields;
   const obj = doc as unknown as Record<string, unknown>;
-  const all = () => new Walker(nodeAction(fns, () => true), topDown, doc, format, listAction(fns, LISTS));
+  const all = () => new Walker(nodeAction(fns, () => true), topDown, doc, conversion, listAction(fns, LISTS));
   if (topDown) {
-    const [d, skip] = straight(fns, root, doc, [], doc, format, true);
+    const [d, skip] = straight(fns, root, doc, [], doc, conversion, true);
     doc = d as Pandoc;
     if (skip) return doc;
     const [m, skipMeta] = meta(doc);
@@ -408,7 +413,7 @@ function applyOne(doc: Pandoc, filter: Filter, format: string | undefined): Pand
       obj[f.name] = w.value(obj[f.name], f.type, doc, f.name, []);
       if (f.name === "meta") doc.meta = meta(doc)[0] as Meta;
     }
-    return straight(fns, root, doc, [], doc, format, false)[0] as Pandoc;
+    return straight(fns, root, doc, [], doc, conversion, false)[0] as Pandoc;
   }
   const passes: [LazyAction, ListAction | undefined, boolean][] = [
     [nodeAction(fns, INLINE), undefined, has(fns, "Inline")],
@@ -418,10 +423,10 @@ function applyOne(doc: Pandoc, filter: Filter, format: string | undefined): Pand
     [nodeAction(fns, OTHER), undefined, hasOther(fns)],
   ];
   for (const [action, lists, needed] of passes) {
-    if (needed) new Walker(action, false, doc, format, lists).children(doc, root);
+    if (needed) new Walker(action, false, doc, conversion, lists).children(doc, root);
   }
   doc.meta = meta(doc)[0] as Meta;
-  return straight(fns, root, doc, [], doc, format, false)[0] as Pandoc;
+  return straight(fns, root, doc, [], doc, conversion, false)[0] as Pandoc;
 }
 
 /** Whether `fns` has a function for the sum `sum` or one of its constructors. */
@@ -442,13 +447,19 @@ function hasOther(fns: Fns): boolean {
 /**
  * Apply a filter to a document, in place, as pandoc applies a Lua filter;
  * returns it (or its replacement). A list of filters is applied one after
- * the other, as a Lua filter file returning a list.
+ * the other, as a Lua filter file returning a list. `format` is the output
+ * format's name, or the whole `Conversion` (then in `ctx.conversion`).
  */
-export function applyFilter(doc: Pandoc, filter: Filter, format?: string): Pandoc;
-export function applyFilter(doc: Pandoc, filters: readonly Filter[], format?: string): Pandoc;
-export function applyFilter(doc: Pandoc, filter: Filter | readonly Filter[], format?: string): Pandoc {
-  for (const f of isFilterList(filter) ? filter : [filter]) doc = applyOne(doc, f, format);
+export function applyFilter(doc: Pandoc, filter: Filter, format?: string | Conversion): Pandoc;
+export function applyFilter(doc: Pandoc, filters: readonly Filter[], format?: string | Conversion): Pandoc;
+export function applyFilter(doc: Pandoc, filter: Filter | readonly Filter[], format?: string | Conversion): Pandoc {
+  const conversion = toConversion(format);
+  for (const f of isFilterList(filter) ? filter : [filter]) doc = applyOne(doc, f, conversion);
   return doc;
+}
+
+function toConversion(format: string | Conversion | undefined): Conversion {
+  return format instanceof Conversion ? format : new Conversion({ format });
 }
 
 function isFilterList(f: Filter | readonly Filter[]): f is readonly Filter[] {

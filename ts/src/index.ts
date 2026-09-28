@@ -14,6 +14,8 @@ export * from "./generated.ts";
 export { ASTDecodeError, ASTError, ASTTypeError, check, formatPath, fromJSON, toJSON } from "./core.ts";
 export type { Path } from "./core.ts";
 export { applyFilter, Context, walk } from "./walk.ts";
+export { Conversion } from "./conversion.ts";
+export type { ConversionInit } from "./conversion.ts";
 export type { Filter, Result, WalkedContext } from "./walk.ts";
 export { blocks, fromPlain, inlines, stringify, toPlain } from "./util.ts";
 

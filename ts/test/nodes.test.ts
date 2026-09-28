@@ -1,7 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
-  applyFilter, ASTTypeError, Attr, blocks, BulletList, Cell, Cite, Code, DefinitionList, Div, Emph,
+  applyFilter, ASTTypeError, Attr, blocks, Conversion, BulletList, Cell, Cite, Code, DefinitionList, Div, Emph,
   Header, inlines, LineBlock, Link, Math, Note, OrderedList, Pandoc, Para, Plain, Quoted, SoftBreak,
   Space, Str, Table, fromPlain, parse, serialize, stringify, toPlain,
 } from "../src/index.ts";
@@ -119,6 +123,44 @@ test("context", () => {
   const paths: string[] = [];
   applyFilter(doc(), { Str: (_s, ctx) => { paths.push(ctx.where); } });
   assert.ok(paths.includes("blocks[2].content[1][0].content[0]"), paths.join(" "));
+});
+
+test("the conversion", () => {
+  const conversion = new Conversion({ format: "html5", inputFormat: "commonmark_x-smart", readerOptions: { columns: 72 } });
+  let seen: Conversion | undefined;
+  let format: string | undefined;
+  applyFilter(doc(), { Pandoc: (_d, ctx) => { seen = ctx.conversion; format = ctx.format; } }, conversion);
+  assert.equal(seen, conversion);
+  assert.equal(format, "html5");
+  // a format alone is a conversion knowing only that
+  applyFilter(doc(), { Pandoc: (_d, ctx) => { seen = ctx.conversion; } }, "latex");
+  assert.equal(seen?.format, "latex");
+  assert.equal(seen?.inputFormat, undefined);
+  const env = Conversion.fromEnvironment(["html5"], {
+    PANDOC_READER_OPTIONS: '{"columns":72,"extensions":["smart"]}',
+    PANDOC_INPUT_FORMAT: "markdown+smart", PANDOC_OUTPUT_FORMAT: "",
+  });
+  assert.deepEqual([env.format, env.inputFormat, env.outputFormat, env.readerOptions?.["columns"]],
+                   ["html5", "markdown+smart", undefined, 72]);
+});
+
+test("runFilter tells the filter the conversion, under pandoc", (t) => {
+  try { execFileSync("pandoc", ["--version"]); } catch { return t.skip("no pandoc on PATH"); }
+  const dir = mkdtempSync(join(tmpdir(), "panir-"));
+  writeFileSync(join(dir, "package.json"), '{"type": "module"}');
+  const node = new URL("../src/node.ts", import.meta.url).href;
+  const index = new URL("../src/index.ts", import.meta.url).href;
+  writeFileSync(join(dir, "f.js"), `
+import { Para, Str } from ${JSON.stringify(index)};
+import { runFilter } from ${JSON.stringify(node)};
+await runFilter({ Pandoc: (d, ctx) => {
+  d.blocks.push(Para([Str([ctx.format, ctx.conversion.format, ctx.conversion.readerOptions.columns].join(","))]));
+  return d;
+} });
+`);
+  const out = execFileSync("pandoc", ["-f", "markdown", "-t", "plain", "--columns=60", "--filter", join(dir, "f.js")],
+                           { input: "hi" }).toString();
+  assert.equal(out, "hi\n\nplain,plain,60\n");
 });
 
 test("errors in filter functions say where", () => {

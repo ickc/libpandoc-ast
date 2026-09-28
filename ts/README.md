@@ -73,7 +73,13 @@ the node (changed in place or not), a node to replace it, or an array to
 splice in its place (`[]` deletes it). `Inlines` and `Blocks` get every
 list of them, and `Meta` the metadata; each returns a replacement, or
 nothing. The second argument is the `Context`: `parent`, `index`,
-`next`/`prev`, `path`, `doc`, `format`.
+`next`/`prev`, `path`, `doc`, `format`, and `conversion`: the pandoc run
+the filter is part of (`format`, and when known `inputFormat`,
+`outputFormat`, `readerOptions`, `options`), as panir's Python
+`Conversion`. `runFilter` reads it from pandoc's arguments and environment
+(`$PANDOC_READER_OPTIONS`, and `$PANDOC_INPUT_FORMAT`/`$PANDOC_OUTPUT_FORMAT`
+where set, as libpandoc does); `applyFilter(doc, filter, conversion)` takes
+one.
 
 `traverse` sets the order, one of the three filter frameworks use:
 

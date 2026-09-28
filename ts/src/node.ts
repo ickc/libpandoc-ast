@@ -9,6 +9,7 @@
  *     pandoc --filter ./upper.js input.md
  */
 
+import { Conversion } from "./conversion.ts";
 import { applyFilter } from "./walk.ts";
 import type { Filter } from "./walk.ts";
 import { parse, serialize } from "./index.ts";
@@ -20,7 +21,8 @@ export async function runFilter(filter: Filter | readonly Filter[]): Promise<voi
   const chunks: Buffer[] = [];
   for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
   const doc = parse(Buffer.concat(chunks).toString("utf8"));
-  const format = process.argv[2];
+  // the output format (argv), and what pandoc says in the environment
+  const conversion = Conversion.fromEnvironment(process.argv.slice(2), process.env);
   const filters: readonly Filter[] = Array.isArray(filter) ? filter : [filter];
-  process.stdout.write(serialize(applyFilter(doc, filters, format)));
+  process.stdout.write(serialize(applyFilter(doc, filters, conversion)));
 }
