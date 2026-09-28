@@ -18,7 +18,7 @@
 mod filter;
 mod generated;
 
-pub use filter::{apply, Bottomup, Ctx, Filter, Order, Topdown, Typewise};
+pub use filter::{apply, apply_with, Bottomup, Conversion, Ctx, Filter, Order, Topdown, Typewise};
 pub use generated::*;
 
 use std::fmt;
@@ -188,7 +188,21 @@ impl Pandoc {
 /// });
 /// ```
 pub fn filter<F: FnOnce(&mut Pandoc, Option<&str>)>(f: F) {
-    let format = std::env::args().nth(1);
+    filter_with(|doc, conversion| f(doc, conversion.format.as_deref()));
+}
+
+/// As [`filter`], with the whole [`Conversion`] pandoc tells a JSON filter
+/// ([`Conversion::from_env`]).
+///
+/// ```no_run
+/// use panir::Conversion;
+/// panir::filter_with(|doc, conversion: &Conversion| {
+///     let columns = conversion.reader_options.as_ref().and_then(|o| o["columns"].as_u64());
+///     let _ = columns;
+/// });
+/// ```
+pub fn filter_with<F: FnOnce(&mut Pandoc, &Conversion)>(f: F) {
+    let conversion = Conversion::from_env();
     let mut input = String::new();
     let result = std::io::stdin()
         .read_to_string(&mut input)
@@ -196,7 +210,7 @@ pub fn filter<F: FnOnce(&mut Pandoc, Option<&str>)>(f: F) {
         .and_then(|_| from_str(&input).map_err(|e| e.to_string()));
     match result {
         Ok(mut doc) => {
-            f(&mut doc, format.as_deref());
+            f(&mut doc, &conversion);
             let mut out = std::io::stdout().lock();
             out.write_all(to_string(&doc).as_bytes())
                 .expect("writing stdout");

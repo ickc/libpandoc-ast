@@ -88,6 +88,20 @@ doc() = Pandoc(
     BulletList([Plain(Str("x"))], [Plain(Str("y"))]),
 )
 
+@testset "the conversion" begin
+    c = Conversion(; format = "html5", input_format = "commonmark_x-smart")
+    seen = Ref{Any}(nothing)
+    f(d::Pandoc, ctx) = (seen[] = (ctx.conversion, ctx.format); nothing)
+    walk!(f, Pandoc(Para("x")); format = c)
+    @test seen[] == (c, "html5")
+    walk!(f, Pandoc(Para("x")); format = "latex")
+    @test seen[][1].format == "latex" && seen[][1].input_format === nothing
+    env = Conversion(["html5"], Dict("PANDOC_READER_OPTIONS" => "{\"columns\":72}",
+                                     "PANDOC_INPUT_FORMAT" => "markdown+smart", "PANDOC_OUTPUT_FORMAT" => ""))
+    @test (env.format, env.input_format, env.output_format, env.reader_options["columns"]) ==
+          ("html5", "markdown+smart", nothing, 72)
+end
+
 @testset "walk!" begin
     d = walk!(doc()) do x
         if x isa Header

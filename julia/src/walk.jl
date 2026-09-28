@@ -1,9 +1,44 @@
 # Walking a document, and filters as functions with a method per node type.
 
 """
+    Conversion(; format, input_format, output_format, reader_options, options)
+
+The pandoc conversion a filter runs in, as panir's Python `Conversion`: the
+output format's name (`format`, what pandoc passes a JSON filter), and,
+when known, the input and output formats with extensions, the reader's
+options and the conversion's options (defaults-file keys). A filter method
+finds it in `ctx.conversion`. `Conversion(args, env)` reads it as a JSON
+filter under pandoc gets it: the output format as the first argument,
+`\$PANDOC_READER_OPTIONS`, and `\$PANDOC_INPUT_FORMAT` and
+`\$PANDOC_OUTPUT_FORMAT` where set (libpandoc sets them; proposed to
+pandoc in jgm/pandoc#11016).
+"""
+Base.@kwdef struct Conversion
+    format::Union{Nothing, String} = nothing
+    input_format::Union{Nothing, String} = nothing
+    output_format::Union{Nothing, String} = nothing
+    reader_options::Union{Nothing, AbstractDict} = nothing
+    options::Union{Nothing, AbstractDict} = nothing
+end
+
+function Conversion(args::AbstractVector{<:AbstractString}, env::AbstractDict)
+    nonempty(k) = (v = get(env, k, ""); isempty(v) ? nothing : String(v))
+    reader = nonempty("PANDOC_READER_OPTIONS")
+    Conversion(; format = isempty(args) ? nothing : String(args[1]),
+               input_format = nonempty("PANDOC_INPUT_FORMAT"),
+               output_format = nonempty("PANDOC_OUTPUT_FORMAT"),
+               reader_options = reader === nothing ? nothing : JSON.parse(reader))
+end
+
+_conversion(c::Conversion) = c
+_conversion(format::Nothing) = Conversion()
+_conversion(format::AbstractString) = Conversion(; format = String(format))
+
+"""
 Where a node is, for a filter method that takes it: `parent` (the node whose
 field holds it), `field`, `index` in that field's list (or key, in a map),
-`container` (that list), `path` from the document, `doc`, `format`.
+`container` (that list), `path` from the document, `doc`, `conversion`
+(the pandoc run, a `Conversion`) and `format` (its output format's name).
 """
 struct Context
     parent::Any
@@ -12,6 +47,7 @@ struct Context
     index::Any
     path::Vector{Any}
     doc::Any
+    conversion::Conversion
     format::Union{Nothing, String}
     topdown::Bool
     skip::Base.RefValue{Bool}
@@ -49,7 +85,7 @@ mutable struct _Walker
     f::Any
     topdown::Bool
     doc::Any
-    format::Union{Nothing, String}
+    conversion::Conversion
     stack::Vector{_Frame}
     wants::Any   # which nodes this walk calls `f` on
     lists::Any   # which lists
@@ -57,8 +93,8 @@ end
 
 function _context(w::_Walker)
     parent, field, container, index, path = isempty(w.stack) ? (nothing, :_, nothing, nothing, Any[]) : w.stack[end]
-    Context(parent, isempty(w.stack) ? nothing : field, container, index, copy(path), w.doc, w.format,
-            w.topdown, Ref(false))
+    Context(parent, isempty(w.stack) ? nothing : field, container, index, copy(path), w.doc, w.conversion,
+            w.conversion.format, w.topdown, Ref(false))
 end
 
 # `f` on `x` (with the context if it has such a method); the result, and
@@ -239,7 +275,8 @@ called on every list of them, and one for `Panir.Meta` on the metadata
 - `:bottomup` (panflute's): one walk, each node after its children, a list
   after its elements, the metadata after what is in it, `Pandoc` last.
 
-Returns `node` or its replacement.
+`format` is the output format's name, or the whole `Conversion` (then in
+`ctx.conversion`). Returns `node` or its replacement.
 
 ```julia
 demote(h::Header) = (h.level += 1; nothing)
@@ -250,9 +287,9 @@ walk!(demote, doc)
 function walk!(f, node::Node; traverse::Symbol = :typewise, format = nothing)
     traverse in (:typewise, :topdown, :bottomup) || throw(ArgumentError(
         "traverse: expected :typewise, :topdown or :bottomup, got $(repr(traverse))"))
-    fmt = format === nothing ? nothing : String(format)
+    conversion = _conversion(format)
     topdown = traverse === :topdown
-    walker(wants, lists) = _Walker(f, topdown, node, fmt, _Frame[], wants, lists)
+    walker(wants, lists) = _Walker(f, topdown, node, conversion, _Frame[], wants, lists)
     anylist = _ -> true
     nolist = _ -> false
     node isa Pandoc || return traverse === :typewise ?
@@ -307,11 +344,12 @@ end
     run_filter(f; traverse = :typewise)
 
 Run `f` (as in `walk!`) as a pandoc JSON filter: a document on stdin, to
-stdout. pandoc's first argument, the output format, is `ctx.format`.
+stdout. `ctx.conversion` is what pandoc says of the conversion: the output
+format (its first argument, also `ctx.format`), and its environment.
 """
 function run_filter(f; traverse::Symbol = :typewise)
     doc = parse(read(stdin, String))
-    doc = walk!(f, doc; traverse, format = isempty(ARGS) ? nothing : ARGS[1])
+    doc = walk!(f, doc; traverse, format = Conversion(ARGS, ENV))
     write(stdout, serialize(doc))
     nothing
 end

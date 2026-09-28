@@ -34,7 +34,9 @@ run_filter(upper)
 - `walk!(f, doc)` calls `f(x, ctx)` or `f(x)` wherever `f` has a method for
   `x`, so the most specific method wins, by dispatch. Return `nothing` to
   keep a node, a node to replace it, or a vector to splice in its place.
-  `ctx` is a `Context`: `parent`, `field`, `index`, `path`, `doc`, `format`.
+  `ctx` is a `Context`: `parent`, `field`, `index`, `path`, `doc`, `format`,
+  and `conversion` (a `Conversion`, as in Python: formats with extensions and
+  reader options, when pandoc or libpandoc tells them).
   As in pandoc's Lua filters, a method for `Vector{Inline}` or
   `Vector{Block}` gets every list of them, and one for `Panir.Meta` the
   metadata (`Meta` alone is `Base.Meta`); methods for anything don't count
