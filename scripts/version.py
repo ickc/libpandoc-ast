@@ -55,13 +55,15 @@ def found() -> dict[str, str]:
 def check() -> str:
     versions = found()
     semver = versions["rust/Cargo.toml"]
-    expected = {
-        path: pep440(semver) if py else semver for path, _, py in PLACES
-    } | {k: semver for k in versions if k.startswith("ts/package-lock.json")}
+    expected = {path: pep440(semver) if py else semver for path, _, py in PLACES} | {
+        k: semver for k in versions if k.startswith("ts/package-lock.json")
+    }
     wrong = {k: v for k, v in versions.items() if v != expected[k]}
     if wrong:
-        sys.exit("versions disagree:\n" + "\n".join(
-            f"  {k}: {v} (expected {expected[k]})" for k, v in wrong.items()))
+        sys.exit(
+            "versions disagree:\n"
+            + "\n".join(f"  {k}: {v} (expected {expected[k]})" for k, v in wrong.items())
+        )
     return semver
 
 
@@ -73,7 +75,7 @@ def set_version(v: str) -> None:
         m = re.search(pattern, text, re.M)
         assert m is not None, path
         new = py if is_py else v
-        p.write_text(text[: m.start(1)] + new + text[m.end(1):])
+        p.write_text(text[: m.start(1)] + new + text[m.end(1) :])
     p = ROOT / "ts/package-lock.json"
     lock = json.loads(p.read_text())
     lock["version"] = v
