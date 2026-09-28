@@ -11,10 +11,12 @@ function corpus(name: string): unknown[] {
   return text.split("\n").filter((l) => l).map((l) => JSON.parse(l));
 }
 
-test("round trip", () => {
-  const docs = [...corpus("arbitrary.jsonl"), ...corpus("pandoc.jsonl")];
-  docs.forEach((j, i) => assert.deepEqual(toJSON(fromJSON(j)), j, `document ${i}`));
-});
+// a test per document, so that a failure names it
+for (const name of ["arbitrary.jsonl", "pandoc.jsonl"]) {
+  corpus(name).forEach((j, i) => {
+    test(`round trip: ${name} ${i}`, () => assert.deepEqual(toJSON(fromJSON(j)), j));
+  });
+}
 
 // the corpus names fields as the schema does; TypeScript in camelCase
 const camel = (p: unknown) => typeof p === "string" && p !== "pandoc-api-version"
