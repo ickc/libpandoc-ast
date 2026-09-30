@@ -150,4 +150,11 @@ end
     q = Para(Str("a"), Space(), Quoted(DoubleQuote, Str("q")), Code("c"), Note(Para(Str("n"))))
     @test stringify(q) == "a “q”c"
 end
+@testset "run_filter hands its filter over" begin
+    f(s::Str) = nothing
+    @test Panir.handoff(() -> run_filter(f; traverse = :topdown)) == (f, :topdown)
+    @test Panir.handoff(() -> nothing) === nothing
+    # only in that task
+    @test fetch(Threads.@spawn Panir.handoff(() -> fetch(Threads.@spawn get(task_local_storage(), Panir._HANDOFF, nothing)))) === nothing
+end
 include("filters.jl")

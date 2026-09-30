@@ -89,6 +89,13 @@ mutable struct _Walker
     stack::Vector{_Frame}
     wants::Any   # which nodes this walk calls `f` on
     lists::Any   # which lists
+    arity::Dict{DataType, Int}   # by node type: 2 for f(x, ctx), 1 for f(x), 0 for neither
+end
+
+# `f`'s method for `x`: with the context (2), without (1), or none (0);
+# found once per type (`applicable` for every node is slow).
+_arity(w::_Walker, x) = get!(w.arity, typeof(x)) do
+    hasmethod(w.f, Tuple{typeof(x), Context}) ? 2 : hasmethod(w.f, Tuple{typeof(x)}) ? 1 : 0
 end
 
 function _context(w::_Walker)
@@ -101,20 +108,17 @@ end
 # whether to skip the children
 function _call(w::_Walker, x)
     w.wants(x) || return nothing, false
+    n = _arity(w, x)
+    n == 0 && return nothing, false
+    n == 1 && return w.f(x), false
     ctx = _context(w)
-    r = if applicable(w.f, x, ctx)
-        w.f(x, ctx)
-    elseif applicable(w.f, x)
-        w.f(x)
-    else
-        nothing
-    end
+    r = w.f(x, ctx)
     r, ctx.skip[]
 end
 
 # Whether `f` has a method for `x` itself, not only one for anything: lists
 # and the metadata are values any method would take.
-function _specific(f, x)
+function _specific(@nospecialize(f), x)
     for args in (Tuple{typeof(x), Context}, Tuple{typeof(x)})
         hasmethod(f, args) || continue
         sig = Base.unwrap_unionall(which(f, args).sig)
@@ -196,7 +200,7 @@ function _many(w::_Walker, list::Vector{T}, parent, field, path) where {T <: Nod
     nothing
 end
 
-function _value(w::_Walker, x, parent, field, path)
+function _value(w::_Walker, @nospecialize(x), parent, field, path)
     if x isa Node
         push!(w.stack, (parent, field, nothing, nothing, path))
         try
@@ -237,13 +241,13 @@ function _children(w::_Walker, x::T; skip::Union{Nothing, Symbol} = nothing,
 end
 
 # Whether `f` has a method for some node of type `T`.
-_handles(f, T) = any(methods(f)) do m
+_handles(@nospecialize(f), T) = any(methods(f)) do m
     ps = Base.unwrap_unionall(m.sig).parameters
     length(ps) >= 2 && typeintersect(ps[2], T) !== Union{}
 end
 
 # Whether `f` has a method for a node that isn't an Inline, a Block or the document.
-_handles_other(f) = any(methods(f)) do m
+_handles_other(@nospecialize(f)) = any(methods(f)) do m
     ps = Base.unwrap_unionall(m.sig).parameters
     length(ps) >= 2 && typeintersect(ps[2], Node) !== Union{} && !(ps[2] <: Union{Inline, Block, Pandoc})
 end
@@ -284,12 +288,14 @@ shout(s::Str, ctx) = ctx.format == "html" ? Strong(Str(uppercase(s.text))) : not
 walk!(demote, doc)
 ```
 """
-function walk!(f, node::Node; traverse::Symbol = :typewise, format = nothing)
+function walk!(@nospecialize(f), node::Node; traverse::Symbol = :typewise, format = nothing)
+    # not compiled again for each filter: what calls it is dynamic anyway
     traverse in (:typewise, :topdown, :bottomup) || throw(ArgumentError(
         "traverse: expected :typewise, :topdown or :bottomup, got $(repr(traverse))"))
     conversion = _conversion(format)
     topdown = traverse === :topdown
-    walker(wants, lists) = _Walker(f, topdown, node, conversion, _Frame[], wants, lists)
+    arity = Dict{DataType, Int}()
+    walker(wants, lists) = _Walker(f, topdown, node, conversion, _Frame[], wants, lists, arity)
     anylist = _ -> true
     nolist = _ -> false
     node isa Pandoc || return traverse === :typewise ?
@@ -328,7 +334,7 @@ function walk!(f, node::Node; traverse::Symbol = :typewise, format = nothing)
 end
 
 # The typewise walks `f` needs: which nodes, and which lists, each calls it on.
-function _passes(f)
+function _passes(@nospecialize(f))
     none = _ -> false
     passes = [
         (x -> x isa Inline, none, _handles(f, Inline)),
@@ -348,13 +354,32 @@ stdout. `ctx.conversion` is what pandoc says of the conversion: the output
 format (its first argument, also `ctx.format`), and its environment.
 """
 function run_filter(f; traverse::Symbol = :typewise)
+    h = get(task_local_storage(), _HANDOFF, nothing)
+    h === nothing || (h[] = (f, traverse); return nothing)
     doc = parse(read(stdin, String))
     doc = walk!(f, doc; traverse, format = Conversion(ARGS, ENV))
     write(stdout, serialize(doc))
     nothing
 end
 
-const _QUOTES = Dict(SingleQuote => ("‘", "’"), DoubleQuote => ("“", "”"))
+const _HANDOFF = :panir_handoff
+
+"""
+    handoff(run) -> (f, traverse) or nothing
+
+Call `run()`, which runs a filter script, so that the script's
+`run_filter(f; traverse)` hands `f` over instead of reading a document from
+stdin: for a host that runs filter scripts in its own process, on the
+document it has (libpandoc's `pandocjl`). `nothing` if the script called
+no `run_filter`. Per task, so scripts may run in several at once.
+"""
+function handoff(run)
+    h = Ref{Any}(nothing)
+    task_local_storage(run, _HANDOFF, h)
+    h[]
+end
+
+const _QUOTES =Dict(SingleQuote => ("‘", "’"), DoubleQuote => ("“", "”"))
 
 """
 The text of a node or nodes, without markup, as pandoc's `stringify`.

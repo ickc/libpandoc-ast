@@ -48,6 +48,9 @@ run_filter(upper)
   its children, which `skip_children!(ctx)` skips); `:bottomup` (panflute's:
   one walk, each node after its children). They are checked against pandoc's
   Lua filters, with the scenarios in [`corpus/filters/`](../corpus/filters/).
+- `run_filter(f)` runs `f` as a pandoc JSON filter. A host running filter
+  scripts in its own process (LibPandoc.jl's `pandocjl`) calls the script
+  inside `Panir.handoff`, and then `run_filter` hands `f` over instead.
 - `Panir.parse`/`serialize` for pandoc's JSON; parsing reports where
   JSON is wrong (`ASTDecodeError`). `stringify` for text.
 
