@@ -8,7 +8,10 @@ is more than declarations: it is what a derive would write. Types:
   "c")]``), which is pandoc-types' encoding: a constructor without fields is a
   unit variant (``Inline::Space``), one with one field holds it
   (``Inline::Str(String)``), one with more holds a struct of the same name
-  with named fields (``Block::Header(Header)``), encoded as an array;
+  with named fields, boxed (``Block::Header(Box<Header>)``), encoded as an
+  array. Boxed, so that every variant is small: an ``Inline`` or ``Block``
+  is 32 bytes, not the size of its biggest struct (152 and 360). A box
+  encodes as what it holds, and ``From<Header> for Block`` builds one;
 - a product is a struct: encoded as an array (``Attr``), as an object with
   pandoc-types' keys (``Citation``), or as the document (``Pandoc``);
 - an enum-like type is an internally tagged enum: ``{"t": "InlineMath"}``;
@@ -159,10 +162,16 @@ class Gen:
             elif n == 1:
                 o.append(f"    {c['name']}({self.rust(c['fields'][0]['type'])}),\n")
             else:
-                o.append(f"    {c['name']}({c['name']}),\n")
+                o.append(f"    {c['name']}(Box<{c['name']}>),\n")
                 structs.append(c)
         o.append("}\n\n")
         self.sum_de(t)
+        for c in structs:
+            o.append(
+                f"impl From<{c['name']}> for {t['name']} {{\n"
+                f"    fn from(x: {c['name']}) -> Self {{\n"
+                f"        {t['name']}::{c['name']}(Box::new(x))\n    }}\n}}\n\n"
+            )
         for c in structs:
             if c["name"] in self.types:
                 raise SystemExit(f"constructor {c['name']} clashes with a type name")

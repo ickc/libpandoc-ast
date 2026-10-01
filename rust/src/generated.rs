@@ -41,17 +41,17 @@ pub enum Block {
     Plain(Vec<Inline>),
     Para(Vec<Inline>),
     LineBlock(Vec<Vec<Inline>>),
-    CodeBlock(CodeBlock),
-    RawBlock(RawBlock),
+    CodeBlock(Box<CodeBlock>),
+    RawBlock(Box<RawBlock>),
     BlockQuote(Vec<Block>),
-    OrderedList(OrderedList),
+    OrderedList(Box<OrderedList>),
     BulletList(Vec<Vec<Block>>),
     DefinitionList(Vec<(Vec<Inline>, Vec<Vec<Block>>)>),
-    Header(Header),
+    Header(Box<Header>),
     HorizontalRule,
-    Table(Table),
-    Figure(Figure),
-    Div(Div),
+    Table(Box<Table>),
+    Figure(Box<Figure>),
+    Div(Box<Div>),
 }
 
 impl<'de> Deserialize<'de> for Block {
@@ -168,6 +168,48 @@ impl<'de> Deserialize<'de> for Block {
             }
         }
         d.deserialize_map(V)
+    }
+}
+
+impl From<CodeBlock> for Block {
+    fn from(x: CodeBlock) -> Self {
+        Block::CodeBlock(Box::new(x))
+    }
+}
+
+impl From<RawBlock> for Block {
+    fn from(x: RawBlock) -> Self {
+        Block::RawBlock(Box::new(x))
+    }
+}
+
+impl From<OrderedList> for Block {
+    fn from(x: OrderedList) -> Self {
+        Block::OrderedList(Box::new(x))
+    }
+}
+
+impl From<Header> for Block {
+    fn from(x: Header) -> Self {
+        Block::Header(Box::new(x))
+    }
+}
+
+impl From<Table> for Block {
+    fn from(x: Table) -> Self {
+        Block::Table(Box::new(x))
+    }
+}
+
+impl From<Figure> for Block {
+    fn from(x: Figure) -> Self {
+        Block::Figure(Box::new(x))
+    }
+}
+
+impl From<Div> for Block {
+    fn from(x: Div) -> Self {
+        Block::Div(Box::new(x))
     }
 }
 
@@ -504,18 +546,18 @@ pub enum Inline {
     Superscript(Vec<Inline>),
     Subscript(Vec<Inline>),
     SmallCaps(Vec<Inline>),
-    Quoted(Quoted),
-    Cite(Cite),
-    Code(Code),
+    Quoted(Box<Quoted>),
+    Cite(Box<Cite>),
+    Code(Box<Code>),
     Space,
     SoftBreak,
     LineBreak,
-    Math(Math),
-    RawInline(RawInline),
-    Link(Link),
-    Image(Image),
+    Math(Box<Math>),
+    RawInline(Box<RawInline>),
+    Link(Box<Link>),
+    Image(Box<Image>),
     Note(Vec<Block>),
-    Span(Span),
+    Span(Box<Span>),
 }
 
 impl<'de> Deserialize<'de> for Inline {
@@ -658,6 +700,54 @@ impl<'de> Deserialize<'de> for Inline {
             }
         }
         d.deserialize_map(V)
+    }
+}
+
+impl From<Quoted> for Inline {
+    fn from(x: Quoted) -> Self {
+        Inline::Quoted(Box::new(x))
+    }
+}
+
+impl From<Cite> for Inline {
+    fn from(x: Cite) -> Self {
+        Inline::Cite(Box::new(x))
+    }
+}
+
+impl From<Code> for Inline {
+    fn from(x: Code) -> Self {
+        Inline::Code(Box::new(x))
+    }
+}
+
+impl From<Math> for Inline {
+    fn from(x: Math) -> Self {
+        Inline::Math(Box::new(x))
+    }
+}
+
+impl From<RawInline> for Inline {
+    fn from(x: RawInline) -> Self {
+        Inline::RawInline(Box::new(x))
+    }
+}
+
+impl From<Link> for Inline {
+    fn from(x: Link) -> Self {
+        Inline::Link(Box::new(x))
+    }
+}
+
+impl From<Image> for Inline {
+    fn from(x: Image) -> Self {
+        Inline::Image(Box::new(x))
+    }
+}
+
+impl From<Span> for Inline {
+    fn from(x: Span) -> Self {
+        Inline::Span(Box::new(x))
     }
 }
 

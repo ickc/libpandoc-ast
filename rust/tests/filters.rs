@@ -264,10 +264,11 @@ impl Filter for Skip {
             }
             Block::BlockQuote(q) => {
                 ctx.skip_children();
-                Some(vec![Block::Div(Div {
+                Some(vec![Div {
                     attr: Attr::default(),
                     content: take(q),
-                })])
+                }
+                .into()])
             }
             _ => None,
         }
