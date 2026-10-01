@@ -48,11 +48,22 @@ impl std::error::Error for Error {}
 
 /// A document from pandoc's JSON, checking its `pandoc-api-version`.
 pub fn from_str(json: &str) -> Result<Pandoc, Error> {
-    let de = &mut serde_json::Deserializer::from_str(json);
-    let doc: Pandoc = serde_path_to_error::deserialize(de).map_err(|e| Error {
-        path: e.path().to_string(),
-        message: e.inner().to_string(),
-    })?;
+    // Read untracked (tracking each value's path made reading 30-40% slower);
+    // only if that fails, read again to find the error's path.
+    let doc: Pandoc = match serde_json::from_str(json) {
+        Ok(doc) => doc,
+        Err(_) => {
+            let de = &mut serde_json::Deserializer::from_str(json);
+            let e = match serde_path_to_error::deserialize::<_, Pandoc>(de) {
+                Err(e) => e,
+                Ok(_) => unreachable!("the same JSON read twice"),
+            };
+            return Err(Error {
+                path: e.path().to_string(),
+                message: e.inner().to_string(),
+            });
+        }
+    };
     if doc.api_version.get(..2) != Some(&PANDOC_API_VERSION[..2]) {
         return Err(Error {
             path: "pandoc-api-version".into(),
