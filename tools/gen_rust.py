@@ -7,7 +7,7 @@ is more than declarations: it is what a derive would write. Types:
 - a sum type is an enum, adjacently tagged (``#[serde(tag = "t", content =
   "c")]``), which is pandoc-types' encoding: a constructor without fields is a
   unit variant (``Inline::Space``), one with one field holds it
-  (``Inline::Str(String)``), one with more holds a struct of the same name
+  (``Inline::Str(Text)``), one with more holds a struct of the same name
   with named fields, boxed (``Block::Header(Box<Header>)``), encoded as an
   array. Boxed, so that every variant is small: an ``Inline`` or ``Block``
   is 32 bytes, not the size of its biggest struct (152 and 360). A box
@@ -15,7 +15,9 @@ is more than declarations: it is what a derive would write. Types:
 - a product is a struct: encoded as an array (``Attr``), as an object with
   pandoc-types' keys (``Citation``), or as the document (``Pandoc``);
 - an enum-like type is an internally tagged enum: ``{"t": "InlineMath"}``;
-- an alias is a type alias.
+- an alias is a type alias;
+- pandoc-types' ``Text`` is ``Text`` (``text.rs``): a string that keeps up
+  to 22 bytes in place, in the 24 bytes a ``String`` takes.
 
 And ``VisitMut``: a method per type, whose default visits the children, to
 override for a filter (as syn's ``visit_mut``).
@@ -31,7 +33,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "rust/src/generated.rs"
 
-PRIM = {"string": "String", "int": "i64", "double": "f64", "bool": "bool"}
+PRIM = {"string": "Text", "int": "i64", "double": "f64", "bool": "bool"}
 KEYWORDS = {
     "type",
     "match",
@@ -110,7 +112,7 @@ class Gen:
                 return f"{t['name']}::{value['t']}"
             return f"{t['name']}::default()"
         if r.get("prim") == "string":
-            return "String::new()" if value == "" else f"{json.dumps(value)}.to_string()"
+            return "Text::new()" if value == "" else f"Text::from({json.dumps(value)})"
         return json.dumps(value)
 
     def has_default(self, t: dict) -> bool:
@@ -400,6 +402,8 @@ use serde::de;
 use serde::{{Deserialize, Deserializer, Serialize, Serializer}};
 use std::collections::BTreeMap;
 
+use crate::Text;
+
 """
 
 ENUM_DE = """\
@@ -407,7 +411,7 @@ impl<'de> Deserialize<'de> for {name} {{
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {{
         const TAGS: &[&str] = &[{tags}];
         let t = crate::de_tag(d, "{name}", TAGS)?;
-        Ok(match t.as_str() {{
+        Ok(match t {{
 {arms}            _ => unreachable!(),
         }})
     }}
@@ -426,21 +430,19 @@ impl<'de> Deserialize<'de> for {name} {{
                 f.write_str("a {name}: {{\\"t\\": ..., \\"c\\": ...}}")
             }}
             fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<{name}, A::Error> {{
-                let mut tag: Option<String> = None;
+                let mut tag: Option<&'static str> = None;
                 let mut value: Option<{name}> = None;
                 let mut early: Option<serde_json::Value> = None;
-                while let Some(key) = map.next_key::<String>()? {{
-                    if key == "t" {{
-                        let t: String = map.next_value()?;
-                        if !TAGS.contains(&t.as_str()) {{
-                            return Err(de::Error::unknown_variant(&t, TAGS));
-                        }}
+                // keys and tags are matched, not copied
+                while let Some(key) = map.next_key::<crate::Key>()? {{
+                    if key == crate::Key::T {{
+                        let t = crate::Tag::check(map.next_value_seed(crate::Tag(TAGS))?, TAGS)?;
                         value = match early.take() {{
                             Some(c) => Some(from_value(&t, c)?),
                             None => unit(&t),
                         }};
                         tag = Some(t);
-                    }} else if key == "c" {{
+                    }} else if key == crate::Key::C {{
                         match tag.as_deref() {{
                             None => early = Some(map.next_value()?),
                             Some(t) => value = Some(match t {{
@@ -502,7 +504,7 @@ VISITOR_DOC = """\
 ///     fn visit_inline(&mut self, x: &mut Inline) {
 ///         walk_inline(self, x);
 ///         if let Inline::Str(s) = x {
-///             *s = s.to_uppercase();
+///             *s = s.to_uppercase().into();
 ///         }
 ///     }
 /// }

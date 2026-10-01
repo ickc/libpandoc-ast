@@ -9,6 +9,8 @@ use serde::de;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::BTreeMap;
 
+use crate::Text;
+
 /// The pandoc-types API version these types are for.
 pub const PANDOC_API_VERSION: [i64; 4] = [1, 23, 1, 2];
 
@@ -32,7 +34,7 @@ impl Default for Pandoc {
 }
 
 /// pandoc's `Meta`.
-pub type Meta = BTreeMap<String, MetaValue>;
+pub type Meta = BTreeMap<Text, MetaValue>;
 
 /// pandoc's `Block`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -79,21 +81,19 @@ impl<'de> Deserialize<'de> for Block {
                 f.write_str("a Block: {\"t\": ..., \"c\": ...}")
             }
             fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<Block, A::Error> {
-                let mut tag: Option<String> = None;
+                let mut tag: Option<&'static str> = None;
                 let mut value: Option<Block> = None;
                 let mut early: Option<serde_json::Value> = None;
-                while let Some(key) = map.next_key::<String>()? {
-                    if key == "t" {
-                        let t: String = map.next_value()?;
-                        if !TAGS.contains(&t.as_str()) {
-                            return Err(de::Error::unknown_variant(&t, TAGS));
-                        }
+                // keys and tags are matched, not copied
+                while let Some(key) = map.next_key::<crate::Key>()? {
+                    if key == crate::Key::T {
+                        let t = crate::Tag::check(map.next_value_seed(crate::Tag(TAGS))?, TAGS)?;
                         value = match early.take() {
                             Some(c) => Some(from_value(&t, c)?),
                             None => unit(&t),
                         };
                         tag = Some(t);
-                    } else if key == "c" {
+                    } else if key == crate::Key::C {
                         match tag.as_deref() {
                             None => early = Some(map.next_value()?),
                             Some(t) => {
@@ -217,7 +217,7 @@ impl From<Div> for Block {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CodeBlock {
     pub attr: Attr,
-    pub text: String,
+    pub text: Text,
 }
 
 impl Serialize for CodeBlock {
@@ -228,7 +228,7 @@ impl Serialize for CodeBlock {
 
 impl<'de> Deserialize<'de> for CodeBlock {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let (attr, text) = <(Attr, String)>::deserialize(d)?;
+        let (attr, text) = <(Attr, Text)>::deserialize(d)?;
         Ok(CodeBlock { attr, text })
     }
 }
@@ -237,7 +237,7 @@ impl<'de> Deserialize<'de> for CodeBlock {
 #[derive(Debug, Clone, PartialEq)]
 pub struct RawBlock {
     pub format: Format,
-    pub text: String,
+    pub text: Text,
 }
 
 impl Serialize for RawBlock {
@@ -248,7 +248,7 @@ impl Serialize for RawBlock {
 
 impl<'de> Deserialize<'de> for RawBlock {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let (format, text) = <(Format, String)>::deserialize(d)?;
+        let (format, text) = <(Format, Text)>::deserialize(d)?;
         Ok(RawBlock { format, text })
     }
 }
@@ -437,10 +437,10 @@ impl<'de> Deserialize<'de> for Div {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "t", content = "c")]
 pub enum MetaValue {
-    MetaMap(BTreeMap<String, MetaValue>),
+    MetaMap(BTreeMap<Text, MetaValue>),
     MetaList(Vec<MetaValue>),
     MetaBool(bool),
-    MetaString(String),
+    MetaString(Text),
     MetaInlines(Vec<Inline>),
     MetaBlocks(Vec<Block>),
 }
@@ -462,21 +462,19 @@ impl<'de> Deserialize<'de> for MetaValue {
                 f.write_str("a MetaValue: {\"t\": ..., \"c\": ...}")
             }
             fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<MetaValue, A::Error> {
-                let mut tag: Option<String> = None;
+                let mut tag: Option<&'static str> = None;
                 let mut value: Option<MetaValue> = None;
                 let mut early: Option<serde_json::Value> = None;
-                while let Some(key) = map.next_key::<String>()? {
-                    if key == "t" {
-                        let t: String = map.next_value()?;
-                        if !TAGS.contains(&t.as_str()) {
-                            return Err(de::Error::unknown_variant(&t, TAGS));
-                        }
+                // keys and tags are matched, not copied
+                while let Some(key) = map.next_key::<crate::Key>()? {
+                    if key == crate::Key::T {
+                        let t = crate::Tag::check(map.next_value_seed(crate::Tag(TAGS))?, TAGS)?;
                         value = match early.take() {
                             Some(c) => Some(from_value(&t, c)?),
                             None => unit(&t),
                         };
                         tag = Some(t);
-                    } else if key == "c" {
+                    } else if key == crate::Key::C {
                         match tag.as_deref() {
                             None => early = Some(map.next_value()?),
                             Some(t) => {
@@ -538,7 +536,7 @@ impl<'de> Deserialize<'de> for MetaValue {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "t", content = "c")]
 pub enum Inline {
-    Str(String),
+    Str(Text),
     Emph(Vec<Inline>),
     Underline(Vec<Inline>),
     Strong(Vec<Inline>),
@@ -591,21 +589,19 @@ impl<'de> Deserialize<'de> for Inline {
                 f.write_str("a Inline: {\"t\": ..., \"c\": ...}")
             }
             fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<Inline, A::Error> {
-                let mut tag: Option<String> = None;
+                let mut tag: Option<&'static str> = None;
                 let mut value: Option<Inline> = None;
                 let mut early: Option<serde_json::Value> = None;
-                while let Some(key) = map.next_key::<String>()? {
-                    if key == "t" {
-                        let t: String = map.next_value()?;
-                        if !TAGS.contains(&t.as_str()) {
-                            return Err(de::Error::unknown_variant(&t, TAGS));
-                        }
+                // keys and tags are matched, not copied
+                while let Some(key) = map.next_key::<crate::Key>()? {
+                    if key == crate::Key::T {
+                        let t = crate::Tag::check(map.next_value_seed(crate::Tag(TAGS))?, TAGS)?;
                         value = match early.take() {
                             Some(c) => Some(from_value(&t, c)?),
                             None => unit(&t),
                         };
                         tag = Some(t);
-                    } else if key == "c" {
+                    } else if key == crate::Key::C {
                         match tag.as_deref() {
                             None => early = Some(map.next_value()?),
                             Some(t) => {
@@ -807,7 +803,7 @@ impl<'de> Deserialize<'de> for Cite {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Code {
     pub attr: Attr,
-    pub text: String,
+    pub text: Text,
 }
 
 impl Serialize for Code {
@@ -818,7 +814,7 @@ impl Serialize for Code {
 
 impl<'de> Deserialize<'de> for Code {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let (attr, text) = <(Attr, String)>::deserialize(d)?;
+        let (attr, text) = <(Attr, Text)>::deserialize(d)?;
         Ok(Code { attr, text })
     }
 }
@@ -827,7 +823,7 @@ impl<'de> Deserialize<'de> for Code {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Math {
     pub math_type: MathType,
-    pub text: String,
+    pub text: Text,
 }
 
 impl Serialize for Math {
@@ -838,7 +834,7 @@ impl Serialize for Math {
 
 impl<'de> Deserialize<'de> for Math {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let (math_type, text) = <(MathType, String)>::deserialize(d)?;
+        let (math_type, text) = <(MathType, Text)>::deserialize(d)?;
         Ok(Math { math_type, text })
     }
 }
@@ -847,7 +843,7 @@ impl<'de> Deserialize<'de> for Math {
 #[derive(Debug, Clone, PartialEq)]
 pub struct RawInline {
     pub format: Format,
-    pub text: String,
+    pub text: Text,
 }
 
 impl Serialize for RawInline {
@@ -858,7 +854,7 @@ impl Serialize for RawInline {
 
 impl<'de> Deserialize<'de> for RawInline {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let (format, text) = <(Format, String)>::deserialize(d)?;
+        let (format, text) = <(Format, Text)>::deserialize(d)?;
         Ok(RawInline { format, text })
     }
 }
@@ -945,15 +941,15 @@ impl<'de> Deserialize<'de> for Span {
 /// pandoc's `Attr`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Attr {
-    pub identifier: String,
-    pub classes: Vec<String>,
-    pub attributes: Vec<(String, String)>,
+    pub identifier: Text,
+    pub classes: Vec<Text>,
+    pub attributes: Vec<(Text, Text)>,
 }
 
 impl Default for Attr {
     fn default() -> Self {
         Attr {
-            identifier: String::new(),
+            identifier: Text::new(),
             classes: Vec::new(),
             attributes: Vec::new(),
         }
@@ -969,7 +965,7 @@ impl Serialize for Attr {
 impl<'de> Deserialize<'de> for Attr {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let (identifier, classes, attributes) =
-            <(String, Vec<String>, Vec<(String, String)>)>::deserialize(d)?;
+            <(Text, Vec<Text>, Vec<(Text, Text)>)>::deserialize(d)?;
         Ok(Attr {
             identifier,
             classes,
@@ -979,7 +975,7 @@ impl<'de> Deserialize<'de> for Attr {
 }
 
 /// pandoc's `Format`.
-pub type Format = String;
+pub type Format = Text;
 
 /// pandoc's `ListAttributes`.
 #[derive(Debug, Clone, PartialEq)]
@@ -1183,7 +1179,7 @@ impl<'de> Deserialize<'de> for QuoteType {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         const TAGS: &[&str] = &["SingleQuote", "DoubleQuote"];
         let t = crate::de_tag(d, "QuoteType", TAGS)?;
-        Ok(match t.as_str() {
+        Ok(match t {
             "SingleQuote" => QuoteType::SingleQuote,
             "DoubleQuote" => QuoteType::DoubleQuote,
             _ => unreachable!(),
@@ -1195,7 +1191,7 @@ impl<'de> Deserialize<'de> for QuoteType {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Citation {
     #[serde(rename = "citationId")]
-    pub id: String,
+    pub id: Text,
     #[serde(rename = "citationPrefix")]
     pub prefix: Vec<Inline>,
     #[serde(rename = "citationSuffix")]
@@ -1220,7 +1216,7 @@ impl<'de> Deserialize<'de> for MathType {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         const TAGS: &[&str] = &["DisplayMath", "InlineMath"];
         let t = crate::de_tag(d, "MathType", TAGS)?;
-        Ok(match t.as_str() {
+        Ok(match t {
             "DisplayMath" => MathType::DisplayMath,
             "InlineMath" => MathType::InlineMath,
             _ => unreachable!(),
@@ -1231,8 +1227,8 @@ impl<'de> Deserialize<'de> for MathType {
 /// pandoc's `Target`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Target {
-    pub url: String,
-    pub title: String,
+    pub url: Text,
+    pub title: Text,
 }
 
 impl Serialize for Target {
@@ -1243,7 +1239,7 @@ impl Serialize for Target {
 
 impl<'de> Deserialize<'de> for Target {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let (url, title) = <(String, String)>::deserialize(d)?;
+        let (url, title) = <(Text, Text)>::deserialize(d)?;
         Ok(Target { url, title })
     }
 }
@@ -1273,7 +1269,7 @@ impl<'de> Deserialize<'de> for ListNumberStyle {
             "UpperAlpha",
         ];
         let t = crate::de_tag(d, "ListNumberStyle", TAGS)?;
-        Ok(match t.as_str() {
+        Ok(match t {
             "DefaultStyle" => ListNumberStyle::DefaultStyle,
             "Example" => ListNumberStyle::Example,
             "Decimal" => ListNumberStyle::Decimal,
@@ -1300,7 +1296,7 @@ impl<'de> Deserialize<'de> for ListNumberDelim {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         const TAGS: &[&str] = &["DefaultDelim", "Period", "OneParen", "TwoParens"];
         let t = crate::de_tag(d, "ListNumberDelim", TAGS)?;
-        Ok(match t.as_str() {
+        Ok(match t {
             "DefaultDelim" => ListNumberDelim::DefaultDelim,
             "Period" => ListNumberDelim::Period,
             "OneParen" => ListNumberDelim::OneParen,
@@ -1327,7 +1323,7 @@ impl<'de> Deserialize<'de> for Alignment {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         const TAGS: &[&str] = &["AlignLeft", "AlignRight", "AlignCenter", "AlignDefault"];
         let t = crate::de_tag(d, "Alignment", TAGS)?;
-        Ok(match t.as_str() {
+        Ok(match t {
             "AlignLeft" => Alignment::AlignLeft,
             "AlignRight" => Alignment::AlignRight,
             "AlignCenter" => Alignment::AlignCenter,
@@ -1355,21 +1351,19 @@ impl<'de> Deserialize<'de> for ColWidth {
                 f.write_str("a ColWidth: {\"t\": ..., \"c\": ...}")
             }
             fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<ColWidth, A::Error> {
-                let mut tag: Option<String> = None;
+                let mut tag: Option<&'static str> = None;
                 let mut value: Option<ColWidth> = None;
                 let mut early: Option<serde_json::Value> = None;
-                while let Some(key) = map.next_key::<String>()? {
-                    if key == "t" {
-                        let t: String = map.next_value()?;
-                        if !TAGS.contains(&t.as_str()) {
-                            return Err(de::Error::unknown_variant(&t, TAGS));
-                        }
+                // keys and tags are matched, not copied
+                while let Some(key) = map.next_key::<crate::Key>()? {
+                    if key == crate::Key::T {
+                        let t = crate::Tag::check(map.next_value_seed(crate::Tag(TAGS))?, TAGS)?;
                         value = match early.take() {
                             Some(c) => Some(from_value(&t, c)?),
                             None => unit(&t),
                         };
                         tag = Some(t);
-                    } else if key == "c" {
+                    } else if key == crate::Key::C {
                         match tag.as_deref() {
                             None => early = Some(map.next_value()?),
                             Some(t) => {
@@ -1468,7 +1462,7 @@ impl<'de> Deserialize<'de> for CitationMode {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         const TAGS: &[&str] = &["AuthorInText", "SuppressAuthor", "NormalCitation"];
         let t = crate::de_tag(d, "CitationMode", TAGS)?;
-        Ok(match t.as_str() {
+        Ok(match t {
             "AuthorInText" => CitationMode::AuthorInText,
             "SuppressAuthor" => CitationMode::SuppressAuthor,
             "NormalCitation" => CitationMode::NormalCitation,
@@ -1547,7 +1541,7 @@ pub type ColSpan = i64;
 ///     fn visit_inline(&mut self, x: &mut Inline) {
 ///         walk_inline(self, x);
 ///         if let Inline::Str(s) = x {
-///             *s = s.to_uppercase();
+///             *s = s.to_uppercase().into();
 ///         }
 ///     }
 /// }

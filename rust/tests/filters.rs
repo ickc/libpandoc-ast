@@ -19,7 +19,7 @@ fn corpus_dir() -> PathBuf {
 }
 
 fn str_(s: &str) -> Inline {
-    Inline::Str(s.to_owned())
+    Inline::Str(s.into())
 }
 
 // Filters whose functions don't depend on each other's calls, in any order.
@@ -31,7 +31,7 @@ impl<O: Order> Filter for Upper<O> {
     type Order = O;
     fn inline(&mut self, x: &mut Inline, _: &mut Ctx<O>) -> Option<Vec<Inline>> {
         match x {
-            Inline::Str(s) => Some(vec![Inline::Str(s.to_uppercase())]),
+            Inline::Str(s) => Some(vec![Inline::Str(s.to_uppercase().into())]),
             _ => None,
         }
     }
@@ -52,9 +52,11 @@ impl<O: Order> Filter for Modify<O> {
     }
     fn inline(&mut self, x: &mut Inline, _: &mut Ctx<O>) -> Option<Vec<Inline>> {
         match x {
-            Inline::Link(l) => l.target.url = format!("https://example.org/{}", l.target.url),
+            Inline::Link(l) => {
+                l.target.url = format!("https://example.org/{}", l.target.url).into()
+            }
             Inline::Image(i) => {
-                i.target.url = format!("img/{}", i.target.url);
+                i.target.url = format!("img/{}", i.target.url).into();
                 i.attr.attributes.push(("loading".into(), "lazy".into()));
             }
             _ => {}
@@ -97,7 +99,7 @@ impl<O: Order> Filter for Generic<O> {
     type Order = O;
     fn inline(&mut self, x: &mut Inline, _: &mut Ctx<O>) -> Option<Vec<Inline>> {
         match x {
-            Inline::Str(s) => Some(vec![Inline::Str(format!("{s}!"))]),
+            Inline::Str(s) => Some(vec![Inline::Str(format!("{s}!").into())]),
             Inline::Code(c) => Some(vec![Inline::Str(c.text.clone())]),
             _ => None,
         }
@@ -132,7 +134,7 @@ impl<O: Order> Filter for Lists<O> {
     fn inlines(&mut self, xs: &mut Vec<Inline>, _: &mut Ctx<O>) {
         let n = xs.len();
         xs.retain(|x| !matches!(x, Inline::Space));
-        xs.push(Inline::Str(format!("<{n}>")));
+        xs.push(Inline::Str(format!("<{n}>").into()));
     }
     fn blocks(&mut self, xs: &mut Vec<Block>, _: &mut Ctx<O>) {
         *xs = take(xs)
@@ -247,7 +249,7 @@ impl Filter for Skip {
     type Order = Topdown;
     fn inline(&mut self, x: &mut Inline, ctx: &mut Ctx<Topdown>) -> Option<Vec<Inline>> {
         match x {
-            Inline::Str(s) => Some(vec![Inline::Str(s.to_uppercase())]),
+            Inline::Str(s) => Some(vec![Inline::Str(s.to_uppercase().into())]),
             Inline::Emph(_) => {
                 ctx.skip_children();
                 None
@@ -288,7 +290,7 @@ impl Filter for TopLists {
     }
     fn inline(&mut self, x: &mut Inline, _: &mut Ctx<Topdown>) -> Option<Vec<Inline>> {
         match x {
-            Inline::Str(s) => Some(vec![Inline::Str(s.to_uppercase())]),
+            Inline::Str(s) => Some(vec![Inline::Str(s.to_uppercase().into())]),
             _ => None,
         }
     }

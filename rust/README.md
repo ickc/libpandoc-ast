@@ -14,7 +14,7 @@ impl Filter for Upper {
 
     fn inline(&mut self, x: &mut Inline, _: &mut Ctx<Typewise>) -> Option<Vec<Inline>> {
         if let Inline::Str(s) = x {
-            *s = s.to_uppercase();
+            *s = s.to_uppercase().into();
         }
         None // keep it, changed in place; Some(vec![...]) splices, Some(vec![]) deletes
     }
@@ -55,13 +55,19 @@ They are checked against pandoc's Lua filters, with the scenarios in
 
 - A sum type is an enum: a constructor without fields is a unit variant
   (`Inline::Space`), with one field it holds the value
-  (`Inline::Str(String)`, `Block::Para(Vec<Inline>)`), with more a boxed
+  (`Inline::Str(Text)`, `Block::Para(Vec<Inline>)`), with more a boxed
   struct of the same name with named fields (`Block::Header(Box<Header>)`,
   built with `Header { level, attr, content }.into()`). Boxed, so that an
   `Inline` or a `Block` is 32 bytes, not the size of the biggest variant
   (152 and 360): less memory and faster walks on big documents. Fields read
   and change through the box as they are (`Inline::Link(l) => l.target.url
   = ...`); the JSON is the same.
+- Every string is a `Text`: up to 22 bytes kept in place (no heap
+  allocation; 99.7% of the words of a real document), longer ones a heap
+  `String`, in the 24 bytes a `String` takes. It reads as a `&str`; make one
+  with `.into()` from `&str` or `String` (`*s = s.to_uppercase().into()`);
+  `push_str` and `make_mut` change one in place. Against `String`, reading
+  and writing JSON is 15–24% faster and a whole document's AST 16% smaller.
 - Products are structs (`Attr { identifier, classes, attributes }`), with
   `Default` where pandoc's Lua constructors have defaults.
 - `VisitMut` has a method per type, and `visit_blocks`/`visit_inlines` for

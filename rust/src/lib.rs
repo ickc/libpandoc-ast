@@ -17,9 +17,11 @@
 
 mod filter;
 mod generated;
+mod text;
 
 pub use filter::{apply, apply_with, Bottomup, Conversion, Ctx, Filter, Order, Topdown, Typewise};
 pub use generated::*;
+pub use text::Text;
 
 use std::fmt;
 use std::io::{Read, Write};
@@ -74,31 +76,94 @@ pub fn de_tag<'de, D: serde::Deserializer<'de>>(
     d: D,
     name: &'static str,
     tags: &'static [&'static str],
-) -> Result<String, D::Error> {
+) -> Result<&'static str, D::Error> {
     use serde::de::{self, MapAccess, Visitor};
     struct V(&'static str, &'static [&'static str]);
     impl<'de> Visitor<'de> for V {
-        type Value = String;
+        type Value = &'static str;
         fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
             write!(f, "a {}: {{\"t\": ...}}", self.0)
         }
-        fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<String, A::Error> {
+        fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<&'static str, A::Error> {
             let mut tag = None;
-            while let Some(key) = map.next_key::<String>()? {
-                if key == "t" {
-                    tag = Some(map.next_value::<String>()?);
+            while let Some(key) = map.next_key::<Key>()? {
+                if key == Key::T {
+                    tag = Some(Tag::check(map.next_value_seed(Tag(self.1))?, self.1)?);
                 } else {
                     map.next_value::<de::IgnoredAny>()?;
                 }
             }
-            let t = tag.ok_or_else(|| de::Error::missing_field("t"))?;
-            if !self.1.contains(&t.as_str()) {
-                return Err(de::Error::unknown_variant(&t, self.1));
-            }
-            Ok(t)
+            tag.ok_or_else(|| de::Error::missing_field("t"))
         }
     }
     d.deserialize_map(V(name, tags))
+}
+
+/// A key of a node's JSON object, `"t"`, `"c"` or another, matched without
+/// copying it.
+#[doc(hidden)]
+#[derive(PartialEq, Eq)]
+pub enum Key {
+    T,
+    C,
+    Other,
+}
+
+impl<'de> serde::Deserialize<'de> for Key {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V;
+        impl serde::de::Visitor<'_> for V {
+            type Value = Key;
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("a key")
+            }
+            fn visit_str<E: serde::de::Error>(self, s: &str) -> Result<Key, E> {
+                Ok(match s {
+                    "t" => Key::T,
+                    "c" => Key::C,
+                    _ => Key::Other,
+                })
+            }
+        }
+        d.deserialize_identifier(V)
+    }
+}
+
+/// A node's tag, one of these, matched without copying it; another is
+/// returned as `Err`, for the error to be raised at the node (its path).
+#[doc(hidden)]
+pub struct Tag(pub &'static [&'static str]);
+
+impl Tag {
+    /// The tag, or an unknown variant error.
+    pub fn check<E: serde::de::Error>(
+        t: Result<&'static str, Text>,
+        tags: &'static [&'static str],
+    ) -> Result<&'static str, E> {
+        t.map_err(|t| E::unknown_variant(&t, tags))
+    }
+}
+
+impl<'de> serde::de::DeserializeSeed<'de> for Tag {
+    type Value = Result<&'static str, Text>;
+    fn deserialize<D: serde::Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
+        struct V(&'static [&'static str]);
+        impl serde::de::Visitor<'_> for V {
+            type Value = Result<&'static str, Text>;
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("a tag")
+            }
+            fn visit_str<E: serde::de::Error>(self, s: &str) -> Result<Self::Value, E> {
+                Ok(self
+                    .0
+                    .iter()
+                    .find(|t| **t == s)
+                    .copied()
+                    .ok_or_else(|| s.into()))
+            }
+        }
+        d.deserialize_str(V(self.0))
+    }
 }
 
 /// A string's words and spaces, as pandoc's Lua `pandoc.Inlines` (and
@@ -120,7 +185,7 @@ pub fn inlines(text: &str) -> Vec<Inline> {
         let end = rest.find(|c| is_space(c) != space).unwrap_or(rest.len());
         let (run, tail) = rest.split_at(end);
         out.push(if !space {
-            Inline::Str(run.to_owned())
+            Inline::Str(run.into())
         } else if run.contains(['\n', '\r']) {
             Inline::SoftBreak
         } else {
@@ -140,12 +205,18 @@ pub fn blocks(text: &str) -> Vec<Block> {
 /// A string where one inline goes is a `Str`, as in pandoc's Lua.
 impl From<&str> for Inline {
     fn from(s: &str) -> Self {
-        Inline::Str(s.to_owned())
+        Inline::Str(s.into())
     }
 }
 
 impl From<String> for Inline {
     fn from(s: String) -> Self {
+        Inline::Str(s.into())
+    }
+}
+
+impl From<Text> for Inline {
+    fn from(s: Text) -> Self {
         Inline::Str(s)
     }
 }
