@@ -1337,7 +1337,7 @@ impl<'de> Deserialize<'de> for Alignment {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "t", content = "c")]
 pub enum ColWidth {
-    ColWidth(f64),
+    ColWidth(#[serde(serialize_with = "crate::aeson_double")] f64),
     ColWidthDefault,
 }
 

@@ -76,6 +76,36 @@ pub fn from_str(json: &str) -> Result<Pandoc, Error> {
     Ok(doc)
 }
 
+/// A `Double` as pandoc's JSON (aeson) writes it, as Haskell shows it:
+/// `0.5`, `1.0`, and outside 0.1 to 10^7 with an exponent, `5.0e-2`.
+fn haskell_double(x: f64) -> String {
+    if !x.is_finite() {
+        return "null".into();
+    }
+    let a = x.abs();
+    if a == 0.0 || (0.1..1e7).contains(&a) {
+        let t = format!("{x}");
+        if t.contains('.') {
+            t
+        } else {
+            t + ".0"
+        }
+    } else {
+        let t = format!("{x:e}");
+        match t.split_once('e') {
+            Some((m, e)) if !m.contains('.') => format!("{m}.0e{e}"),
+            _ => t,
+        }
+    }
+}
+
+#[doc(hidden)]
+pub fn aeson_double<S: serde::Serializer>(x: &f64, s: S) -> Result<S::Ok, S::Error> {
+    let raw = serde_json::value::RawValue::from_string(haskell_double(*x))
+        .map_err(serde::ser::Error::custom)?;
+    serde::Serialize::serialize(&raw, s)
+}
+
 /// A document as pandoc's JSON.
 pub fn to_string(doc: &Pandoc) -> String {
     serde_json::to_string(doc).expect("the AST always encodes")
@@ -301,5 +331,23 @@ pub fn filter_with<F: FnOnce(&mut Pandoc, &Conversion)>(f: F) {
             eprintln!("panir filter: {e}");
             std::process::exit(1);
         }
+    }
+}
+
+#[cfg(test)]
+mod double_tests {
+    use super::haskell_double as h;
+
+    #[test]
+    fn as_haskell_shows() {
+        assert_eq!(h(0.5), "0.5");
+        assert_eq!(h(1.0), "1.0");
+        assert_eq!(h(0.1), "0.1");
+        assert_eq!(h(0.05), "5.0e-2");
+        assert_eq!(h(0.039473684210526314), "3.9473684210526314e-2");
+        assert_eq!(h(1e7), "1.0e7");
+        assert_eq!(h(1234567.5), "1234567.5");
+        assert_eq!(h(0.0), "0.0");
+        assert_eq!(h(-0.25), "-0.25");
     }
 }

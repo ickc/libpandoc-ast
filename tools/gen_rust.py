@@ -162,7 +162,10 @@ class Gen:
             if n == 0:
                 o.append(f"    {c['name']},\n")
             elif n == 1:
-                o.append(f"    {c['name']}({self.rust(c['fields'][0]['type'])}),\n")
+                ty = self.rust(c["fields"][0]["type"])
+                # pandoc's JSON writes a Double as Haskell shows it
+                attr = '#[serde(serialize_with = "crate::aeson_double")] ' if ty == "f64" else ""
+                o.append(f"    {c['name']}({attr}{ty}),\n")
             else:
                 o.append(f"    {c['name']}(Box<{c['name']}>),\n")
                 structs.append(c)
